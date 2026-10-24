@@ -223,6 +223,26 @@ def test_loopback_and_mutation_guards(local):
     assert client.post("/api/arm", content="x"*17000).status_code == 413
 
 
+@pytest.mark.parametrize("origin", [
+    "https://play.trydexops.com",
+    "https://servosocialruss.vercel.app",
+])
+def test_deployed_workspace_can_use_loopback_companion_without_redirect(local, origin):
+    client, _, _, _ = local
+    response = client.get("/api/state", headers={"Origin":origin, "Sec-Fetch-Site":"cross-site"})
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == origin
+    preflight = client.options("/api/runtime/check", headers={
+        "Origin":origin,
+        "Access-Control-Request-Method":"POST",
+        "Access-Control-Request-Headers":"content-type,x-t2-session",
+        "Access-Control-Request-Private-Network":"true",
+    })
+    assert preflight.status_code == 200, preflight.text
+    assert preflight.headers["Access-Control-Allow-Origin"] == origin
+    assert preflight.headers["Access-Control-Allow-Private-Network"] == "true"
+
+
 def test_empty_station_and_real_device_detection(local):
     client, _, _, devices = local
     state = client.get("/api/state").json()

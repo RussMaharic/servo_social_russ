@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -23,6 +24,11 @@ from t2_bots.connect.sessions import Sessions
 from t2_bots.connect.storage import LocalStore, digest
 from t2_bots.connect.runtime import Runtime, API_VERSION, platform_audit
 from t2_bots import __version__
+
+DEPLOYED_WORKSPACES = (
+    "https://play.trydexops.com",
+    "https://servosocialruss.vercel.app",
+)
 
 ASSETS = Path(__file__).parent / "static"
 
@@ -231,15 +237,24 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
     app = FastAPI(title="Dexops local companion", docs_url=None, redoc_url=None,
                   openapi_url=None, lifespan=lifespan)
     app.state.station = station
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(DEPLOYED_WORKSPACES),
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "X-T2-Session"],
+        allow_private_network=True,
+        max_age=600,
+    )
 
     @app.middleware("http")
     async def local_guard(request, call_next):
         host = request.headers.get("host", "")
         allowed = {f"127.0.0.1:{port}", f"localhost:{port}"}
         origin = request.headers.get("origin")
-        if host not in allowed or (origin and origin != "http://" + host):
+        deployed_origin = origin in DEPLOYED_WORKSPACES
+        if host not in allowed or (origin and origin != "http://" + host and not deployed_origin):
             return JSONResponse({"detail": "Only this local workspace can access the companion."}, status_code=403)
-        if request.headers.get("sec-fetch-site") == "cross-site" and request.url.path.startswith("/api/"):
+        if request.headers.get("sec-fetch-site") == "cross-site" and request.url.path.startswith("/api/") and not deployed_origin:
             return JSONResponse({"detail": "Cross-site companion access is blocked."}, status_code=403)
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             if not secrets.compare_digest(request.headers.get("X-T2-Session", ""), station.token):
@@ -251,6 +266,8 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 if not runtime["compatible"] or not runtime["acknowledged"]:
                     return JSONResponse({"detail": "Verify and confirm this companion runtime in the installation step first."}, status_code=409)
         response = await call_next(request)
+        if deployed_origin and request.headers.get("access-control-request-private-network") == "true":
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"

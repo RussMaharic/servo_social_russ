@@ -15,18 +15,28 @@ test('Dexops identity uses a text wordmark, home path, and D favicon',()=>{
   assert.match(source,/data-action="home">\$\{icon\('home'\)\}Home/);
 });
 
-async function workspace(runtime=null,releaseInfo={}){
+async function workspace(runtime=null,releaseInfo={},hostname='localhost'){
   const elements={'#app':{innerHTML:''},'#toast':{hidden:true}};
+  const requests=[];
   const context=vm.createContext({
     document:{querySelector:s=>elements[s]||null,activeElement:null,addEventListener:()=>{}},
-    navigator:{platform:'Win32'}, CSS:{escape:x=>x},
+    navigator:{platform:'Win32'},location:{hostname,reload:()=>{}},CSS:{escape:x=>x},
     setInterval:()=>{},setTimeout:()=>{},clearTimeout:()=>{},console,
-    fetch:async (url,options={})=>options.method==='HEAD'?{ok:true}:url==='release.json'?{ok:true,json:async()=>releaseInfo}:runtime?{ok:true,json:async()=>runtime}:{ok:false,json:async()=>({detail:'No local companion'})}
+    fetch:async (url,options={})=>{requests.push(url);return options.method==='HEAD'?{ok:true}:url==='release.json'?{ok:true,json:async()=>releaseInfo}:runtime?{ok:true,json:async()=>runtime}:{ok:false,json:async()=>({detail:'No local companion'})};}
   });
   vm.runInContext(source,context);
   await new Promise(resolve=>setImmediate(resolve));
-  return {run:s=>vm.runInContext(s,context),html:()=>elements['#app'].innerHTML,setRuntime:value=>{runtime=value;}};
+  return {run:s=>vm.runInContext(s,context),html:()=>elements['#app'].innerHTML,requests,setRuntime:value=>{runtime=value;}};
 }
+
+test('deployed origins stay on the hosted page and call the loopback API',async()=>{
+  for(const host of ['play.trydexops.com','servosocialruss.vercel.app']){
+    const w=await workspace(null,{},host);
+    assert.ok(w.requests.includes('http://127.0.0.1:4840/api/state'));
+    assert.doesNotMatch(w.html(),/href="http:\/\/127\.0\.0\.1:4840/);
+    assert.match(w.html(),/Connect companion in this page/);
+  }
+});
 
 test('hosted entry offers honest installation without invented releases',async()=>{
   const w=await workspace();
