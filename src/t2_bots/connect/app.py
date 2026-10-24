@@ -504,9 +504,10 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
             station.reservation = follower
             try:
                 await station.leader_sessions.connect(station.selected("leader")["port"], station.profile("leader"), reservation["endpoint"], pin)
-            except Exception:
+            except Exception as exc:
                 await station.stop("leader")
-                raise
+                detail = str(exc).strip() or type(exc).__name__
+                raise ValueError("Could not connect to the follower. Check that it is still shared and the PIN is current. " + detail) from exc
         return station.leader_sessions.snapshot()
 
     @app.post("/api/session/enable")

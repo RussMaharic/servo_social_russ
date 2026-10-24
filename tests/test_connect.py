@@ -244,6 +244,35 @@ def test_loopback_and_mutation_guards(local):
     assert client.post("/api/arm", content="x"*17000).status_code == 413
 
 
+def test_leader_connection_failure_returns_json_with_cors_and_releases_reservation(local, monkeypatch):
+    client, station, _, _ = local
+    assert assign(client, "leader").status_code == 200
+    saved = profile()
+    station.store.save_profile("leader", saved)
+    station.arm["calibration_hash"] = digest(saved)
+    station.store.data.update(username="operator", directory_url="https://directory.example")
+    calls = []
+
+    def cloud(method, path, payload=None):
+        calls.append((method, path))
+        return {"endpoint":"ws://follower.example:8765"}
+
+    async def failed_connect(*args, **kwargs):
+        raise RuntimeError("WebSocket handshake rejected")
+
+    monkeypatch.setattr(station, "cloud", cloud)
+    monkeypatch.setattr(station.leader_sessions, "connect", failed_connect)
+    origin = "https://servosocialruss.vercel.app"
+    response = client.post("/api/session/connect", headers={"Origin":origin},
+                           json={"id":"remote-follower", "pin":"123456"})
+    assert response.status_code == 400
+    assert response.headers["Access-Control-Allow-Origin"] == origin
+    assert "WebSocket handshake rejected" in response.json()["detail"]
+    assert ("DELETE", "/v1/followers/remote-follower/reserve") in calls
+    assert station.reservation is None
+    assert station.leader_sessions.status == "idle"
+
+
 @pytest.mark.parametrize("origin", [
     "https://play.trydexops.com",
     "https://servosocialruss.vercel.app",
