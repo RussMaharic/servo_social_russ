@@ -29,6 +29,7 @@ DEPLOYED_WORKSPACES = (
     "https://play.trydexops.com",
     "https://servosocialruss.vercel.app",
 )
+DIRECTORY_TIMEOUT = 70
 
 ASSETS = Path(__file__).parent / "static"
 
@@ -121,7 +122,9 @@ class Companion:
                     headers={"Content-Type": "application/json", "X-Device-ID": cfg["device_id"],
                              "Authorization": "Bearer " + cfg["credential"]})
         try:
-            with urllib.request.urlopen(request, timeout=8) as response:
+            # Render's free service can take 50+ seconds to wake. Keep the
+            # browser action alive long enough for the first directory call.
+            with urllib.request.urlopen(request, timeout=DIRECTORY_TIMEOUT) as response:
                 return json.load(response)
         except urllib.error.HTTPError as exc:
             try:
