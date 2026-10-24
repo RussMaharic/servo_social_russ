@@ -270,7 +270,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 return JSONResponse({"detail": "Workspace session expired. Reload this page."}, status_code=403)
             if len(await request.body()) > 16384:
                 return JSONResponse({"detail": "Request too large."}, status_code=413)
-            if request.url.path not in ("/api/runtime/confirm", "/api/runtime/check", "/api/session/stop"):
+            if request.url.path not in ("/api/runtime/confirm", "/api/runtime/check", "/api/runtime/shutdown", "/api/session/stop"):
                 runtime = station.runtime.snapshot(station.store.data.get("runtime_approval"))
                 if not runtime["compatible"] or not runtime["acknowledged"]:
                     return JSONResponse({"detail": "Verify and confirm this companion runtime in the installation step first."}, status_code=409)
@@ -337,6 +337,20 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
         station.platform_checks = await asyncio.to_thread(platform_audit)
         return {"runtime": station.runtime.snapshot(station.store.data.get("runtime_approval")),
                 "platform_checks": station.platform_checks}
+
+    @app.post("/api/runtime/shutdown")
+    async def runtime_shutdown(payload: dict):
+        async with station.lock:
+            if payload.get("confirmed") is not True:
+                raise ValueError("Confirm the companion update first.")
+            station.idle(all_arms=True)
+            if station.publishing:
+                raise ValueError("Stop sharing your follower before updating the companion.")
+            shutdown = getattr(app.state, "shutdown", None)
+            if shutdown is None:
+                raise ValueError("Close the old companion terminal, then run setup again.")
+            asyncio.get_running_loop().call_later(0.5, shutdown)
+        return {"stopping": True}
 
     @app.post("/api/runtime/confirm")
     async def runtime_confirm(payload: dict):
@@ -556,8 +570,30 @@ def main(default_workspace=""):
             if existing.get("service") == "t2-connect":
                 if existing.get("version") != __version__ or existing.get("api_version") != API_VERSION or existing.get("runtime", {}).get("build_id") != Runtime().build:
                     print("An older or different companion is already using " + url)
-                    print("Stop following, close the older companion, then reopen this current version. Your station data is preserved.")
-                    raise SystemExit(1)
+                    request = urllib.request.Request(url + "/api/runtime/shutdown", method="POST",
+                        data=b'{"confirmed":true}', headers={"Content-Type":"application/json",
+                        "X-T2-Session":existing.get("session_token", "")})
+                    try:
+                        with urllib.request.urlopen(request, timeout=5) as reply:
+                            stopping = json.load(reply).get("stopping") is True
+                        if not stopping:
+                            raise ValueError("Old companion did not confirm shutdown.")
+                        for _ in range(30):
+                            time.sleep(0.2)
+                            try:
+                                with urllib.request.urlopen(url + "/api/state", timeout=0.5):
+                                    pass
+                            except OSError:
+                                break
+                        else:
+                            raise ValueError("Old companion is still closing.")
+                    except (OSError, ValueError):
+                        print("Stop calibration, following and sharing, then close the older companion terminal and run this command again. Your station data is preserved.")
+                        raise SystemExit(1)
+                    print("Previous idle companion closed. Starting the updated copy.")
+                    existing = {}
+                if existing.get("service") != "t2-connect":
+                    raise ValueError("Starting updated companion")
                 print("The companion is already running at " + url)
                 if workspace_url and not args.no_browser:
                     webbrowser.open(workspace_url + "/")
@@ -570,7 +606,10 @@ def main(default_workspace=""):
     if not args.no_browser:
         import threading
         threading.Timer(1.5, lambda: webbrowser.open(workspace_url + "/" if workspace_url else url)).start()
-    uvicorn.run(create_app(port=args.port), host="127.0.0.1", port=args.port)
+    application = create_app(port=args.port)
+    server = uvicorn.Server(uvicorn.Config(application, host="127.0.0.1", port=args.port))
+    application.state.shutdown = lambda: setattr(server, "should_exit", True)
+    server.run()
 
 
 def dexops_main():

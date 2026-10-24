@@ -244,6 +244,21 @@ def test_loopback_and_mutation_guards(local):
     assert client.post("/api/arm", content="x"*17000).status_code == 413
 
 
+def test_update_handoff_requires_session_token_and_idle_station(local):
+    client, station, _, _ = local
+    closed = []
+    client.app.state.shutdown = lambda: closed.append(True)
+    assert client.post('/api/runtime/shutdown', headers={'X-T2-Session':'wrong'},
+                       json={'confirmed':True}).status_code == 403
+    station.publishing = True
+    assert client.post('/api/runtime/shutdown', json={'confirmed':True}).status_code == 400
+    station.publishing = False
+    station.leader_sessions.status = 'connected'
+    assert client.post('/api/runtime/shutdown', json={'confirmed':True}).status_code == 400
+    station.leader_sessions.status = 'idle'
+    assert client.post('/api/runtime/shutdown', json={'confirmed':True}).json() == {'stopping':True}
+
+
 def test_leader_connection_failure_returns_json_with_cors_and_releases_reservation(local, monkeypatch):
     client, station, _, _ = local
     assert assign(client, "leader").status_code == 200
