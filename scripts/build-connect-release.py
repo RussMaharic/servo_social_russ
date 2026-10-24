@@ -31,6 +31,14 @@ def runtime_tls_data():
     return []
 
 
+def wheel_build_command(output):
+    """Use Vercel's preinstalled uv without mutating its managed Python."""
+    uv = shutil.which("uv")
+    if uv:
+        return [uv, "build", "--wheel", "--out-dir", str(output)]
+    return [sys.executable, "-m", "build", "--wheel", "--outdir", str(output)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--windows", action="store_true")
@@ -54,7 +62,7 @@ def main():
     (ASSETS/"build-info.json").write_text(json.dumps({"version":__version__,"build_id":build},indent=2)+"\n",encoding="utf-8")
     (ASSETS/"release.json").write_text(json.dumps(metadata,indent=2)+"\n",encoding="utf-8")
     # Build before copying downloads into package-data, avoiding recursive archives.
-    subprocess.run([sys.executable,"-m","build","--wheel","--outdir",str(output)],cwd=ROOT,check=True)
+    subprocess.run(wheel_build_command(output),cwd=ROOT,check=True)
     wheel = output / f"t2_bots-{__version__}-py3-none-any.whl"
     if not wheel.exists():
         raise RuntimeError("Expected current version wheel was not built.")

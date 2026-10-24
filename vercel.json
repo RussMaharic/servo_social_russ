@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "python3 scripts/build-vercel-site.py",
-  "installCommand": "python3 -m pip install build",
+  "installCommand": "",
   "outputDirectory": "src/t2_bots/connect/static",
   "headers": [
     {"source": "/(.*)", "headers": [

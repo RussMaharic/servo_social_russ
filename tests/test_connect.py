@@ -91,6 +91,15 @@ def test_windows_package_includes_runtime_required_tls_data(tmp_path, monkeypatc
     assert release.runtime_tls_data() == []
 
 
+def test_release_build_uses_uv_without_installing_into_managed_python(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("connect_release_uv", Path(__file__).parents[1] / "scripts/build-connect-release.py")
+    release = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(release)
+    monkeypatch.setattr(release.shutil, "which", lambda name: "/usr/local/bin/uv" if name == "uv" else None)
+    assert release.wheel_build_command(tmp_path) == [
+        "/usr/local/bin/uv", "build", "--wheel", "--out-dir", str(tmp_path)]
+
+
 def test_desktop_build_embeds_a_real_cross_platform_source_download(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("connect_release", Path(__file__).parents[1] / "scripts/build-connect-release.py")
     release = importlib.util.module_from_spec(spec)
