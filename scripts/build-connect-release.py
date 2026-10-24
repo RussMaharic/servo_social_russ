@@ -10,14 +10,33 @@ import shutil
 import ssl
 import subprocess
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "src" / "t2_bots" / "connect" / "static"
-sys.path.insert(0, str(ROOT / "src"))
-from t2_bots import __version__
-from t2_bots.connect.runtime import source_build_id
+
+
+def release_version():
+    with (ROOT / "pyproject.toml").open("rb") as source:
+        return tomllib.load(source)["project"]["version"]
+
+
+def source_build_id():
+    """Match the companion runtime build ID without importing hardware modules."""
+    source_root = ROOT / "src"
+    paths = list(source_root.rglob("*.py"))
+    paths += [p for p in ASSETS.iterdir() if p.suffix in (".js", ".css", ".html", ".svg")]
+    checksum = hashlib.sha256()
+    for path in sorted(set(paths)):
+        if "__pycache__" not in path.parts:
+            checksum.update(path.relative_to(source_root).as_posix().encode())
+            checksum.update(path.read_bytes().replace(b"\r\n", b"\n"))
+    return checksum.hexdigest()[:20]
+
+
+__version__ = release_version()
 
 
 def runtime_tls_data():

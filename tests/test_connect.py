@@ -3,6 +3,8 @@ import json
 import time
 import importlib.util
 import ast
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -98,6 +100,14 @@ def test_release_build_uses_uv_without_installing_into_managed_python(tmp_path, 
     monkeypatch.setattr(release.shutil, "which", lambda name: "/usr/local/bin/uv" if name == "uv" else None)
     assert release.wheel_build_command(tmp_path) == [
         "/usr/local/bin/uv", "build", "--wheel", "--out-dir", str(tmp_path)]
+
+
+def test_release_script_metadata_does_not_import_hardware_dependencies():
+    script = Path(__file__).parents[1] / "scripts/build-connect-release.py"
+    result = subprocess.run([sys.executable, "-S", str(script), "--help"],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "--directory-url" in result.stdout
 
 
 def test_desktop_build_embeds_a_real_cross_platform_source_download(tmp_path, monkeypatch):
