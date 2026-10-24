@@ -521,9 +521,8 @@ def main():
                     print("An older or different companion is already using " + url)
                     print("Stop following, close the older companion, then reopen this current version. Your station data is preserved.")
                     raise SystemExit(1)
-                if not args.no_browser:
-                    webbrowser.open(url)
                 print("The companion is already running at " + url)
+                print("Continue in the workspace tab that is already open.")
                 return
     except (OSError, ValueError):
         pass

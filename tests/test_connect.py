@@ -338,6 +338,28 @@ def test_launcher_does_not_silently_reuse_stale_service(monkeypatch):
     assert result.value.code==1
 
 
+def test_relaunch_keeps_focus_on_the_existing_workspace_tab(monkeypatch, capsys):
+    from t2_bots.connect import app as companion
+    from io import BytesIO
+    import sys
+    current = companion.Runtime()
+    response = {"service":"t2-connect", "version":companion.__version__,
+                "api_version":companion.API_VERSION,
+                "runtime":{"build_id":current.build}}
+    monkeypatch.setattr(sys,"argv",["t2-connect"])
+    monkeypatch.setattr(companion.urllib.request,"urlopen",
+                        lambda *a,**kw:BytesIO(json.dumps(response).encode()))
+    def forbidden(*args,**kwargs):
+        raise AssertionError("Relaunch opened another tab or listener")
+    monkeypatch.setattr(companion.webbrowser,"open",forbidden)
+    import uvicorn
+    monkeypatch.setattr(uvicorn,"run",forbidden)
+    companion.main()
+    output = capsys.readouterr().out
+    assert "already running" in output
+    assert "workspace tab that is already open" in output
+
+
 def test_calibration_reference_travel_and_binding(local):
     client, station, bus, _ = local
     assign(client)
