@@ -231,7 +231,7 @@ def test_public_relay_failure_returns_actionable_json_instead_of_failed_fetch(lo
         "confirmed": True, "relay": True, "label": "My follower"})
     assert response.status_code == 400
     assert response.headers["content-type"].startswith("application/json")
-    assert "public relay could not start" in response.json()["detail"].lower()
+    assert "sharing could not complete" in response.json()["detail"].lower()
     assert station.follower_sessions.status == "idle"
 
 

@@ -112,7 +112,7 @@ class Companion:
         except (OSError, ValueError):
             return False
 
-    def cloud(self, method, path, payload=None):
+    def cloud(self, method, path, payload=None, *, recover_identity=True):
         cfg = self.store.data
         url = cfg.get("directory_url", "")
         if not url:
@@ -131,6 +131,12 @@ class Companion:
                 detail = json.loads(exc.read()).get("detail", str(exc))
             except Exception:
                 detail = str(exc)
+            if (recover_identity and exc.code == 403 and detail == "Device credential required."
+                    and path != "/v1/identity" and cfg.get("username")):
+                self.cloud("POST", "/v1/identity", {
+                    "username": cfg["username"], "device_id": cfg["device_id"],
+                    "credential": cfg["credential"]}, recover_identity=False)
+                return self.cloud(method, path, payload, recover_identity=False)
             raise ValueError(str(detail)) from exc
         except urllib.error.URLError as exc:
             raise ValueError("Cannot reach the directory. Check the server address and connection.") from exc
@@ -478,7 +484,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 station.publishing = True
             except Exception as exc:
                 await station.follower_sessions.stop()
-                action = "The public relay could not start. Check OpenSSH and internet access, then retry." if payload.get("relay") else "Follower sharing could not start."
+                action = "Follower sharing could not complete."
                 raise ValueError(action + " " + str(exc)) from exc
         return station.follower_sessions.snapshot()
 
