@@ -546,7 +546,11 @@ def main(default_workspace=""):
                     print("Stop following, close the older companion, then reopen this current version. Your station data is preserved.")
                     raise SystemExit(1)
                 print("The companion is already running at " + url)
-                print("Continue in the workspace tab that is already open.")
+                if workspace_url and not args.no_browser:
+                    webbrowser.open(workspace_url + "/")
+                    print("Opened the deployed Dexops workspace.")
+                else:
+                    print("Continue in the workspace tab that is already open.")
                 return
     except (OSError, ValueError):
         pass

@@ -399,6 +399,26 @@ def test_relaunch_keeps_focus_on_the_existing_workspace_tab(monkeypatch, capsys)
     assert "workspace tab that is already open" in output
 
 
+def test_dexops_relaunch_opens_deployed_workspace_when_companion_is_running(monkeypatch, capsys):
+    from t2_bots.connect import app as companion
+    from io import BytesIO
+    import sys
+    current = companion.Runtime()
+    response = {"service":"t2-connect", "version":companion.__version__,
+                "api_version":companion.API_VERSION,
+                "runtime":{"build_id":current.build}}
+    monkeypatch.setattr(sys,"argv",["dexops"])
+    monkeypatch.setattr(companion.urllib.request,"urlopen",
+                        lambda *a,**kw:BytesIO(json.dumps(response).encode()))
+    opened = []
+    monkeypatch.setattr(companion.webbrowser,"open",opened.append)
+    import uvicorn
+    monkeypatch.setattr(uvicorn,"run",lambda *a,**kw:pytest.fail("started a second companion listener"))
+    companion.dexops_main()
+    assert opened == ["https://servosocialruss.vercel.app/"]
+    assert "Opened the deployed Dexops workspace" in capsys.readouterr().out
+
+
 def test_calibration_reference_travel_and_binding(local):
     client, station, bus, _ = local
     assign(client)
