@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f6f8">
+  <meta name="description" content="Connect, calibrate and qualify your SO-101. A guided workspace for remote robot teleoperation.">
+  <title>t2 Connect — From your desk to anywhere</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to workspace</a>
+  <div id="app"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="confirm-dialog" aria-labelledby="dialog-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Close dialog" value="cancel">×</button>
+      <span class="eyebrow">BEFORE YOU CONTINUE</span><h2 id="dialog-title"></h2>
+      <p id="dialog-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">Cancel</button><button class="button" value="confirm" id="dialog-confirm">Continue</button></div>
+    </form>
+  </dialog>
+  <dialog id="pin-dialog" aria-labelledby="pin-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Close dialog" value="cancel" formnovalidate>×</button>
+      <span class="eyebrow">A PRIVATE CONNECTION</span><h2 id="pin-title">Connect to follower</h2>
+      <p id="pin-owner"></p>
+      <div class="field inline-space"><label for="session-pin">Owner’s six-digit PIN</label>
+        <input id="session-pin" type="password" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="••••••" required>
+        <small>Connecting reads state. Following stays off until you explicitly enable it.</small>
+      </div>
+      <div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button" value="connect">Connect</button></div>
+    </form>
+  </dialog>
+  <noscript>This workspace needs JavaScript to show live hardware checks. Enable it and reload.</noscript>
+</body>
+</html>

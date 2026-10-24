@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "python3 scripts/build-vercel-site.py",
+  "installCommand": "python3 -m pip install build",
+  "outputDirectory": "src/t2_bots/connect/static",
+  "headers": [
+    {"source": "/(.*)", "headers": [
+      {"key": "X-Content-Type-Options", "value": "nosniff"},
+      {"key": "Referrer-Policy", "value": "no-referrer"},
+      {"key": "X-Frame-Options", "value": "DENY"}
+    ]},
+    {"source": "/release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]},
+    {"source": "/downloads/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"}]}
+  ]
+}

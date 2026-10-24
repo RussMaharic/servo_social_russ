@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: t2-connect-directory
+    runtime: python
+    plan: starter
+    numInstances: 1
+    buildCommand: pip install '.[directory]'
+    startCommand: t2-directory --host 0.0.0.0
+    healthCheckPath: /healthz
+    autoDeployTrigger: off
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: T2_DIRECTORY_REQUIRE_POSTGRES
+        value: '1'
+      - key: T2_SUPABASE_PROJECT_REF
+        value: fwamzeswdfhqtabakaib
+      - key: T2_DATABASE_URL
+        sync: false
