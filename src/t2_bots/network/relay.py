@@ -116,16 +116,21 @@ class PinggyRelayManager:
         start_time = time.time()
         url_pattern = re.compile(r"tcp://([a-zA-Z0-9\.\-]+):(\d+)")
         endpoint_found = False
+        startup_output = []
 
         while time.time() - start_time < timeout_s:
             if self.process.poll() is not None:
-                err_output = self.process.stdout.read() if self.process.stdout else ""
+                remainder = self.process.stdout.read() if self.process.stdout else ""
+                err_output = "".join(startup_output) + remainder
                 raise RuntimeError(f"SSH process terminated unexpectedly (exit code {self.process.returncode}): {err_output}")
 
             line = self.process.stdout.readline()
             if not line:
                 time.sleep(0.05)
                 continue
+
+            startup_output.append(line)
+            startup_output = startup_output[-30:]
 
             match = url_pattern.search(line)
             if match:
