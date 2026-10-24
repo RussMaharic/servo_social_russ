@@ -13,7 +13,9 @@ test('source package and onboarding expose Dexops launchers for Windows and macO
     assert.ok(fs.existsSync(launcher));
     assert.match(builder, new RegExp(launcher.replace('.', '\\.')));
     assert.match(checker, new RegExp(launcher.replace('.', '\\.')));
-    assert.match(frontend, new RegExp(launcher.replace('.', '\\.')));
+    if (launcher.endsWith('.command')) assert.match(frontend, new RegExp(launcher.replace('.', '\\.')));
   }
   assert.match(fs.readFileSync('Start Dexops.command', 'utf8'), /scripts\/start-connect\.sh/);
+  assert.match(frontend, /py scripts\/setup-dexops\.py/);
+  assert.match(builder, /scripts\/setup-dexops\.py/);
 });

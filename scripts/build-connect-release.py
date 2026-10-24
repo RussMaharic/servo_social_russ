@@ -93,6 +93,8 @@ def main():
                          "scripts/start-connect.ps1","scripts/start-connect.sh","scripts/build-connect-release.py",
                          "scripts/check-connect-release.py","scripts/connect_entry.py","docs/FRONTEND.md")
         package_files += tuple(name for name in ("Start Dexops.cmd", "Start Dexops.command") if (ROOT / name).is_file())
+        if (ROOT / "scripts/setup-dexops.py").is_file():
+            package_files += ("scripts/setup-dexops.py",)
         for name in package_files:
             archive.write(ROOT/name,"t2-connect/"+name)
         cloud_guide = ROOT / "docs/CLOUD-SETUP.md"
@@ -104,6 +106,7 @@ def main():
             f"Dexops {__version__} | build {build}\n\n"
             "Extract the entire ZIP before launching. Python 3.10+ and internet access are required for first setup.\n"
             "Windows: open Start Dexops.cmd.\n"
+            "Windows if Smart App Control blocks the launcher: install Python from python.org, open PowerShell in the extracted folder, and run py scripts/setup-dexops.py. No security settings need to be disabled.\n"
             "Windows: open Start t2 Connect.cmd if you need the legacy filename.\n"
             "macOS: open Start Dexops.command. If macOS blocks it, Control-click it, choose Open, then confirm.\n"
             "Linux: open Terminal in this t2-connect folder and run: bash scripts/start-connect.sh\n"

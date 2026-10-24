@@ -1,3 +1,3 @@
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-connect.ps1"
+py "%~dp0scripts\setup-dexops.py"
 if errorlevel 1 pause
