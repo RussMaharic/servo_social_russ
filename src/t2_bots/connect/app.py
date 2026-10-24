@@ -195,6 +195,9 @@ class Companion:
                                 self.capture_error = "Calibration stopped because the browser stopped responding. Keep the arm supported and restart calibration."
                                 await asyncio.to_thread(self.hardware.cancel)
                     if any(s.status != "idle" for s in (self.leader_sessions, self.follower_sessions)):
+                        for session in (self.leader_sessions, self.follower_sessions):
+                            if session.status != "idle":
+                                session.error = "Session stopped: the browser heartbeat was absent for more than 5 seconds. Keep this workspace visible and reconnect."
                         await self.stop()
                     continue
                 if self.arm and not self.current_device():
@@ -206,6 +209,7 @@ class Companion:
                                 await asyncio.to_thread(self.hardware.cancel)
                 for role in ("leader", "follower"):
                     if self.session_for(role).status != "idle" and not self.current_device(role):
+                        self.session_for(role).error = "Session stopped: the " + role + " USB controller disconnected. Reconnect its data cable before reconnecting."
                         await self.stop(role)
                 if time.monotonic() - last_heartbeat > 7:
                     last_heartbeat = time.monotonic()

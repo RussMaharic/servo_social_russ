@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 import pytest
 import websockets
@@ -6,6 +7,32 @@ import websockets
 from test_connect import FakeBus, profile
 from t2_bots.connect.hardware import Hardware
 from t2_bots.connect.sessions import Sessions, PROTOCOL
+
+
+@pytest.mark.asyncio
+async def test_leader_timeout_records_visible_reason():
+    leader = Sessions(Hardware(lambda **_: FakeBus()))
+
+    class SilentFollower:
+        async def send(self, message):
+            pass
+
+        async def recv(self):
+            raise asyncio.TimeoutError()
+
+        async def close(self):
+            pass
+
+    leader.ws = SilentFollower()
+    leader.open_bus("FAKE")
+    leader.profile = profile()
+    try:
+        await leader.leader_loop()
+        assert leader.status == "fault"
+        assert "did not respond within 0.5 seconds" in leader.error
+        assert not leader.enabled
+    finally:
+        await leader.stop()
 
 
 @pytest.mark.asyncio

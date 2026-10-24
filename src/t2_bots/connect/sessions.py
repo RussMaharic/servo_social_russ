@@ -175,8 +175,10 @@ class Sessions:
                         last_health = time.monotonic()
                 self.telemetry = {"raw": raw, "enabled": self.enabled}
                 await ws.send(json.dumps(self.telemetry))
-        except (websockets.exceptions.ConnectionClosed, asyncio.TimeoutError):
-            pass
+        except asyncio.TimeoutError:
+            self.error = "Follower disconnected: no leader message arrived within 0.5 seconds. Check the connection and keep both workspaces open."
+        except websockets.exceptions.ConnectionClosed as exc:
+            self.error = "Leader connection closed: " + (str(exc).strip() or "remote connection ended")
         except Exception as exc:
             self.error = str(exc)
             try:
@@ -264,7 +266,8 @@ class Sessions:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            self.error = str(exc)
+            self.error = ("Leader disconnected: the follower did not respond within 0.5 seconds. Check relay latency and keep both workspaces open."
+                          if isinstance(exc, asyncio.TimeoutError) else str(exc).strip() or type(exc).__name__)
             self.enabled = False
             self.status = "fault"
             if self.ws:
