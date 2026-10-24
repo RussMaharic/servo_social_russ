@@ -34,7 +34,8 @@ test('deployed origins stay on the hosted page and call the loopback API',async(
     const w=await workspace(null,{},host);
     assert.ok(w.requests.includes('http://127.0.0.1:4840/api/state'));
     assert.doesNotMatch(w.html(),/href="http:\/\/127\.0\.0\.1:4840/);
-    assert.match(w.html(),/Connect companion in this page/);
+    assert.match(w.html(),/This page will connect and continue automatically/);
+    assert.doesNotMatch(w.html(),/data-action="connect-companion"/);
   }
 });
 
