@@ -36,6 +36,7 @@ def test_relay_startup_uses_valid_options_and_reads_endpoint(monkeypatch, platfo
     result = manager.start_tunnel(timeout_s=1)
     assert (result.host, result.port) == ('relay.example', 12345)
     assert 'UserKnownHostsFile=' + expected in commands[0]
+    assert '-R0:127.0.0.1:8765' in commands[0]
     manager.stop_tunnel()
     assert process.stopped
 

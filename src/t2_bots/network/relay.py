@@ -90,7 +90,7 @@ class PinggyRelayManager:
         self._stop_event.clear()
 
         # Build OpenSSH reverse tunnel command
-        # -p 443 tcp@a.pinggy.io -R0:localhost:<local_port>
+        # Match the follower's IPv4 listener; localhost may resolve to ::1.
         cmd = [
             "ssh",
             "-o", "StrictHostKeyChecking=no",
@@ -99,7 +99,7 @@ class PinggyRelayManager:
             "-o", "ServerAliveCountMax=3",
             "-o", "ExitOnForwardFailure=yes",
             "-p", str(self.PINGGY_PORT),
-            f"-R0:localhost:{self.local_port}",
+            f"-R0:127.0.0.1:{self.local_port}",
             f"{self.PINGGY_USER}@{self.PINGGY_HOST}",
         ]
 
