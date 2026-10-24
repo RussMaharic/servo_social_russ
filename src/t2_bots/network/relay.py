@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import threading
+import queue
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, Callable
 
@@ -113,20 +114,31 @@ class PinggyRelayManager:
         )
 
         # Parse output stream for public URL
-        start_time = time.time()
+        start_time = time.monotonic()
         url_pattern = re.compile(r"tcp://([a-zA-Z0-9\.\-]+):(\d+)")
         endpoint_found = False
         startup_output = []
+        output = queue.Queue()
+        stream = self.process.stdout
 
-        while time.time() - start_time < timeout_s:
-            if self.process.poll() is not None:
-                remainder = self.process.stdout.read() if self.process.stdout else ""
-                err_output = "".join(startup_output) + remainder
-                raise RuntimeError(f"SSH process terminated unexpectedly (exit code {self.process.returncode}): {err_output}")
+        def read_startup():
+            for line in stream:
+                output.put(line)
+                if url_pattern.search(line):
+                    return
 
-            line = self.process.stdout.readline()
-            if not line:
-                time.sleep(0.05)
+        reader = threading.Thread(target=read_startup, daemon=True)
+        reader.start()
+
+        while time.monotonic() - start_time < timeout_s:
+            try:
+                line = output.get(timeout=min(0.1, max(0.001, timeout_s - (time.monotonic() - start_time))))
+            except queue.Empty:
+                if self.process.poll() is not None and not reader.is_alive() and output.empty():
+                    code = self.process.returncode
+                    err_output = "".join(startup_output)
+                    self.stop_tunnel()
+                    raise RuntimeError(f"SSH process terminated unexpectedly (exit code {code}): {err_output}")
                 continue
 
             startup_output.append(line)
