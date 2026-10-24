@@ -507,6 +507,11 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
             except Exception as exc:
                 await station.stop("leader")
                 detail = str(exc).strip() or type(exc).__name__
+                cause = exc.__cause__
+                if cause is not None:
+                    reason = str(cause).strip() or type(cause).__name__
+                    if reason not in detail:
+                        detail += " (" + reason + ")"
                 raise ValueError("Could not connect to the follower. Check that it is still shared and the PIN is current. " + detail) from exc
         return station.leader_sessions.snapshot()
 
