@@ -526,7 +526,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
     return app
 
 
-def main():
+def main(default_workspace=""):
     import uvicorn
     parser = argparse.ArgumentParser(description="Open the Dexops guided robot workspace")
     parser.add_argument("--port", type=int, default=4840)
@@ -534,7 +534,7 @@ def main():
     parser.add_argument("--workspace-url", help="Open an approved hosted Dexops workspace instead of localhost")
     args = parser.parse_args()
     url = f"http://127.0.0.1:{args.port}"
-    workspace_url = str(args.workspace_url or "").rstrip("/")
+    workspace_url = str(args.workspace_url or default_workspace).rstrip("/")
     if workspace_url and workspace_url not in DEPLOYED_WORKSPACES:
         parser.error("The hosted workspace URL is not approved by this companion build.")
     try:
@@ -554,6 +554,11 @@ def main():
         import threading
         threading.Timer(1.5, lambda: webbrowser.open(workspace_url + "/" if workspace_url else url)).start()
     uvicorn.run(create_app(port=args.port), host="127.0.0.1", port=args.port)
+
+
+def dexops_main():
+    """Global end-user command: start locally and open the hosted workspace."""
+    main("https://servosocialruss.vercel.app")
 
 
 if __name__ == "__main__":
