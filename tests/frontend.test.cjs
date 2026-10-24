@@ -4,6 +4,16 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../src/t2_bots/connect/static/app.js'),'utf8');
+const index=fs.readFileSync(path.join(__dirname,'../src/t2_bots/connect/static/index.html'),'utf8');
+const favicon=fs.readFileSync(path.join(__dirname,'../src/t2_bots/connect/static/favicon.svg'),'utf8');
+
+test('Dexops identity uses a text wordmark, home path, and D favicon',()=>{
+  assert.match(index,/<title>Dexops —/);
+  assert.match(favicon,/>D<\/text>/);
+  assert.doesNotMatch(favicon,/<circle|<path/);
+  assert.match(source,/aria-label="Dexops home"/);
+  assert.match(source,/data-action="home">\$\{icon\('home'\)\}Home/);
+});
 
 async function workspace(runtime=null,releaseInfo={}){
   const elements={'#app':{innerHTML:''},'#toast':{hidden:true}};
@@ -20,6 +30,10 @@ async function workspace(runtime=null,releaseInfo={}){
 
 test('hosted entry offers honest installation without invented releases',async()=>{
   const w=await workspace();
+  assert.match(w.html(),/aria-label="Dexops home"/);
+  assert.match(w.html(),/>Dexops</);
+  assert.match(w.html(),/data-action="home">.*Home/);
+  assert.doesNotMatch(w.html(),/brand-mark|t₂|t2 CONNECT/);
   assert.match(w.html(),/A small install/);
   assert.match(w.html(),/has not been published/);
   assert.doesNotMatch(w.html(),/Download for Windows/);

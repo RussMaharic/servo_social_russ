@@ -72,7 +72,7 @@ def main():
         for migration in (ROOT / "supabase/migrations").glob("*.sql"):
             archive.write(migration, "t2-connect/" + migration.relative_to(ROOT).as_posix())
         archive.writestr("t2-connect/START-HERE.txt",
-            f"t2 Connect {__version__} | build {build}\n\n"
+            f"Dexops {__version__} | build {build}\n\n"
             "Extract the entire ZIP before launching. Python 3.10+ and internet access are required for first setup.\n"
             "Windows: open Start t2 Connect.cmd.\n"
             "macOS / Linux: open Terminal in this t2-connect folder and run: bash scripts/start-connect.sh\n"

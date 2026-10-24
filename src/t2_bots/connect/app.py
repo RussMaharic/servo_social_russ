@@ -228,7 +228,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
         station.hardware.cancel()
         await station.stop()
 
-    app = FastAPI(title="t2 Connect local companion", docs_url=None, redoc_url=None,
+    app = FastAPI(title="Dexops local companion", docs_url=None, redoc_url=None,
                   openapi_url=None, lifespan=lifespan)
     app.state.station = station
 
@@ -508,7 +508,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
 
 def main():
     import uvicorn
-    parser = argparse.ArgumentParser(description="Open t2 Connect guided robot setup")
+    parser = argparse.ArgumentParser(description="Open the Dexops guided robot workspace")
     parser.add_argument("--port", type=int, default=4840)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()

@@ -163,7 +163,7 @@ def create_app(db_path=None, database_url=None):
         if db_path is None and os.environ.get("T2_DIRECTORY_REQUIRE_POSTGRES") == "1":
             raise RuntimeError("Set the private T2_DATABASE_URL before starting the hosted directory.")
         directory = Directory(db_path or sqlite_directory_path())
-    app = FastAPI(title="t2 Connect directory", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Dexops directory", docs_url=None, redoc_url=None)
     app.state.directory = directory
     attempts = defaultdict(deque)
     rate_lock = threading.Lock()
@@ -238,7 +238,7 @@ def create_app(db_path=None, database_url=None):
 
 def main():
     import uvicorn
-    parser = argparse.ArgumentParser(description="Shared t2 Connect follower directory")
+    parser = argparse.ArgumentParser(description="Shared Dexops follower directory")
     default_host = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT_NAME") else "127.0.0.1"
     parser.add_argument("--host", default=default_host)
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8090")))
