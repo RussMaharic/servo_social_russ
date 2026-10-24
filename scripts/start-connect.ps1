@@ -11,5 +11,6 @@ if (-not (Test-Path -LiteralPath $runtimePath)) {
 }
 & $runtimePath -m pip install -e "$projectRoot[gateway]"
 if ($LASTEXITCODE -ne 0) { throw 'Installation failed. Check your internet connection and try again.' }
-& $runtimePath -m t2_bots.connect.app
+Write-Host 'Dexops companion is starting. Return to your open Dexops browser tab.' -ForegroundColor Green
+& $runtimePath -m t2_bots.connect.app --no-browser
 if ($LASTEXITCODE -ne 0) { throw 'The companion could not start. Check whether port 4840 is already in use.' }
