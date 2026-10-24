@@ -214,6 +214,27 @@ def test_calibrated_follower_needs_no_certificate(local):
     assert station.store.profile_path("follower").read_bytes() == before
 
 
+def test_public_relay_failure_returns_actionable_json_instead_of_failed_fetch(local, monkeypatch):
+    client, station, _, _ = local
+    assert assign(client, "follower").status_code == 200
+    saved = profile()
+    station.store.save_profile("follower", saved)
+    station.arm["calibration_hash"] = digest(saved)
+    station.store.data["username"] = "operator"
+    station.store.save()
+
+    async def relay_failure(*args, **kwargs):
+        raise RuntimeError("SSH process terminated unexpectedly")
+
+    monkeypatch.setattr(station.follower_sessions, "listen", relay_failure)
+    response = client.post("/api/share", json={
+        "confirmed": True, "relay": True, "label": "My follower"})
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/json")
+    assert "public relay could not start" in response.json()["detail"].lower()
+    assert station.follower_sessions.status == "idle"
+
+
 def test_loopback_and_mutation_guards(local):
     client, station, _, _ = local
     assert client.get("/api/state", headers={"Host":"evil.example"}).status_code == 403

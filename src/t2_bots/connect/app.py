@@ -465,9 +465,9 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
             if not payload.get("confirmed"):
                 raise ValueError("The follower owner must approve sharing.")
             follower = station.store.data["arms"]["follower"]
-            await station.follower_sessions.listen(station.selected("follower")["port"], station.profile("follower"),
-                                          public=payload.get("relay") is True)
             try:
+                await station.follower_sessions.listen(station.selected("follower")["port"], station.profile("follower"),
+                                              public=payload.get("relay") is True)
                 endpoint = station.follower_sessions.endpoint if payload.get("relay") else endpoint_url(str(payload.get("endpoint", "")))
                 station.follower_sessions.endpoint = endpoint
                 station.label = str(payload.get("label", "My SO-101"))[:60]
@@ -476,9 +476,10 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 await asyncio.to_thread(station.cloud, "PUT", "/v1/follower", {
                     "label": station.label, "endpoint": endpoint, "calibrated": True, "busy": False})
                 station.publishing = True
-            except Exception:
+            except Exception as exc:
                 await station.follower_sessions.stop()
-                raise
+                action = "The public relay could not start. Check OpenSSH and internet access, then retry." if payload.get("relay") else "Follower sharing could not start."
+                raise ValueError(action + " " + str(exc)) from exc
         return station.follower_sessions.snapshot()
 
     @app.post("/api/session/connect")
