@@ -11,7 +11,7 @@ if (-not (Test-Path -LiteralPath $runtimePath)) {
 }
 & $runtimePath -m pip install -e "$projectRoot[gateway]"
 if ($LASTEXITCODE -ne 0) { throw 'Installation failed. Check your internet connection and try again.' }
-$commandDir = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Dexops\bin'
+$commandDir = Join-Path $HOME '.local\bin'
 New-Item -ItemType Directory -Path $commandDir -Force | Out-Null
 $commandPath = Join-Path $commandDir 'dexops.cmd'
 $command = "@echo off`r`n`"$runtimePath`" -m t2_bots.connect.app --workspace-url `"https://servosocialruss.vercel.app/`" %*`r`n"

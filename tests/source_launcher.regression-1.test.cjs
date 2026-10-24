@@ -12,6 +12,6 @@ test('downloaded source launchers open the hosted workspace instead of localhost
     assert.match(launcher, /https:\/\/servosocialruss\.vercel\.app\//);
     assert.doesNotMatch(launcher, /--workspace-url\s+["']?http:\/\/127\.0\.0\.1/);
   }
-  assert.match(fs.readFileSync('scripts/start-connect.ps1', 'utf8'), /Dexops\\bin[\s\S]*dexops\.cmd/);
+  assert.match(fs.readFileSync('scripts/start-connect.ps1', 'utf8'), /\.local\\bin[\s\S]*dexops\.cmd/);
   assert.match(fs.readFileSync('scripts/start-connect.sh', 'utf8'), /\.local\/bin[\s\S]*COMMAND_DIR\/dexops/);
 });
