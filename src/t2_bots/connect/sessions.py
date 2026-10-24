@@ -13,18 +13,18 @@ import websockets
 
 from t2_bots.connect.directory import endpoint_url
 from t2_bots.connect.hardware import required
-from t2_bots.core.certification import verify_certificate
 from t2_bots.network.protocol import TeleopPacket
 from t2_bots_so101.driver.registers import Register
 
-PROTOCOL = "t2-connect/1"
+PROTOCOL = "t2-connect/2"
 
 
 class Sessions:
     def __init__(self, hardware):
         self.hardware = hardware
         self.server = self.ws = self.bus = self.worker = self.relay = None
-        self.profile = self.certificate = None
+        self.profile = None
+        self.role = None
         self.status = "idle"
         self.error = ""
         self.pin = ""
@@ -60,23 +60,18 @@ class Sessions:
         self.bus = self.hardware.bus_factory(port=port)
         try:
             self.bus.open()
-            report = self.hardware.inspect_bus(self.bus, self.certificate["role"])
+            report = self.hardware.inspect_bus(self.bus, self.role)
             if not report["passed"] or any(m["torque"] for m in report["motors"]):
                 raise ValueError("Resolve motor checks and release torque before connecting.")
-            for mid, name in self.names():
-                motor = report["motors"][mid - 1]
-                bounds = self.profile[name]
-                if not bounds["range_min"] <= motor["position"] <= bounds["range_max"]:
-                    raise ValueError(f"Move {name.replace('_', ' ')} inside its saved calibration range before connecting.")
         except Exception:
             self.bus.close()
             self.bus = None
             raise
 
-    async def listen(self, port, profile, certificate, listen_port=8765, public=False):
+    async def listen(self, port, profile, listen_port=8765, public=False):
         if self.status != "idle":
             raise ValueError("Stop the current session first.")
-        self.profile, self.certificate = profile, certificate
+        self.profile, self.role = profile, "follower"
         await asyncio.to_thread(self.open_bus, port)
         self.pin = f"{secrets.randbelow(900000) + 100000}"
         self.error = ""
@@ -108,15 +103,12 @@ class Sessions:
             if hello.get("protocol") != PROTOCOL or not secrets.compare_digest(str(hello.get("pin", "")), self.pin):
                 self.failures.append(now)
                 raise ValueError("Incorrect PIN or incompatible companion version.")
-            leader_cert = hello.get("certificate", {})
-            if not verify_certificate(leader_cert) or leader_cert.get("role") != "leader" or leader_cert.get("grade") != "A+":
-                raise ValueError("The leader needs a current passing certificate.")
-            if not verify_certificate(self.certificate):
-                raise ValueError("Follower certificate expired.")
+            if hello.get("role") != "leader" or hello.get("calibrated") is not True:
+                raise ValueError("Calibrate the leader before connecting.")
             self.ws = ws
             self.error = ""
             self.status = "connected"
-            await ws.send(json.dumps({"protocol": PROTOCOL, "status": "connected", "certificate": self.certificate}))
+            await ws.send(json.dumps({"protocol": PROTOCOL, "status": "connected", "role": "follower", "calibrated": True}))
             last_time = time.monotonic()
             last_health = 0
             while True:
@@ -127,10 +119,6 @@ class Sessions:
                     leader_base = self.decode_raw(message["raw"])
                     follower_base = raw.copy()
                     last_target = raw.copy()
-                    for mid, name in self.names():
-                        p = self.profile[name]
-                        if not p["range_min"] <= raw[mid] <= p["range_max"]:
-                            raise ValueError(f"{name}: current position is outside calibrated limits.")
                     async with self.io:
                         await asyncio.to_thread(self.bus.sync_write_positions, raw)
                         for mid in raw:
@@ -158,7 +146,12 @@ class Sessions:
                             if not isinstance(span, (int, float)) or not 60 <= span <= 4095:
                                 raise ValueError("Invalid leader gripper calibration.")
                             delta *= (p["range_max"] - p["range_min"]) / span
-                        goal = min(p["range_max"], max(p["range_min"], follower_base[mid] + delta))
+                        # Starting just outside a saved range is allowed without
+                        # commanding a jump. The starting pose becomes a temporary
+                        # boundary, so subsequent movement can only return inward.
+                        low = min(p["range_min"], follower_base[mid])
+                        high = max(p["range_max"], follower_base[mid])
+                        goal = min(high, max(low, follower_base[mid] + delta))
                         max_step = 30 / (360 / 4096) * dt
                         target[mid] = last_target[mid] + min(max_step, max(-max_step, goal - last_target[mid]))
                     async with self.io:
@@ -219,20 +212,19 @@ class Sessions:
             required(value, f"motor {mid} encoder")
         return values
 
-    async def connect(self, port, profile, certificate, endpoint, pin):
+    async def connect(self, port, profile, endpoint, pin):
         if self.status != "idle":
             raise ValueError("Stop the current session first.")
-        self.profile, self.certificate = profile, certificate
+        self.profile, self.role = profile, "leader"
         self.error = ""
         try:
             await asyncio.to_thread(self.open_bus, port)
             self.ws = await websockets.connect(endpoint_url(endpoint), open_timeout=8,
                                                 max_size=32768, max_queue=2)
-            await self.ws.send(json.dumps({"protocol": PROTOCOL, "pin": pin, "certificate": certificate}))
+            await self.ws.send(json.dumps({"protocol": PROTOCOL, "pin": pin, "role": "leader", "calibrated": True}))
             response = json.loads(await asyncio.wait_for(self.ws.recv(), 8))
-            remote_cert = response.get("certificate", {})
-            if response.get("protocol") != PROTOCOL or response.get("status") != "connected" or not verify_certificate(remote_cert) or remote_cert.get("role") != "follower" or remote_cert.get("grade") != "A+":
-                raise ValueError(response.get("error", "Follower handshake or certificate failed."))
+            if response.get("protocol") != PROTOCOL or response.get("status") != "connected" or response.get("role") != "follower" or response.get("calibrated") is not True:
+                raise ValueError(response.get("error", "Follower handshake failed."))
             self.endpoint, self.status = endpoint, "connected"
             self.worker = asyncio.create_task(self.leader_loop())
         except Exception:

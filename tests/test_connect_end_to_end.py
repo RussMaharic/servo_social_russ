@@ -85,12 +85,11 @@ async def test_complete_onboarding_remote_following_and_restart(tmp_path):
                 assert (await client.get("/api/state")).json()["capture"]
             await post(client, "calibration/save", {"reviewed":True})
             profile_before = station.store.profile_path(role).read_bytes()
-            certificate = await post(client, "certify", {"confirmed":True})
-            assert certificate["grade"] == "A+"
             assert station.store.profile_path(role).read_bytes() == profile_before
             state = (await client.get("/api/state")).json()
-            assert state["calibrated"] and state["certified"]
-            assert (await client.get("/api/certificate")).json()["arm_id"] == certificate["arm_id"]
+            assert state["calibrated"] and state["ready"]
+            assert "certificate" not in station.arm
+            assert (await client.get("/api/certificate")).status_code == 404
             assert all(v[Register.TORQUE_ENABLE] == 0 for v in bus.values.values())
             bus.writes.clear()
 

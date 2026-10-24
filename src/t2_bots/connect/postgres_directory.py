@@ -53,6 +53,6 @@ class PostgresDirectory(Directory):
         with self.psycopg.connect(self._database_url, row_factory=dict_row,
                                   sslmode="require", connect_timeout=5,
                                   prepare_threshold=None) as connection:
-            connection.execute("SET LOCAL search_path TO t2_directory, pg_catalog")
+            connection.execute("SET LOCAL search_path TO public, pg_catalog")
             connection.execute("SET LOCAL statement_timeout = '5s'")
             yield PostgresQueries(connection)

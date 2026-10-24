@@ -3,7 +3,6 @@ import logging
 import time
 
 from t2_bots.core.calibration import JOINT_ID_MAP, CANONICAL_REST_ANGLES, DEGREES_PER_TICK
-from t2_bots.core.certification import CertificationEngine
 from t2_bots_so101.driver.bus import FeetechBus
 from t2_bots_so101.driver.registers import Register
 
@@ -199,20 +198,10 @@ class Hardware:
                 raise ValueError(f"Move {name.replace('_', ' ')} through a comfortable range first (at least 120 ticks). Do not force a joint.")
             zero = round(cap["reference"][mid] - CANONICAL_REST_ANGLES[name] / DEGREES_PER_TICK)
             profile[name] = {"id": mid, "drive_mode": 0, "homing_offset": zero - 2047,
-                             "range_min": low + 30, "range_max": high - 30}
+                             "range_min": low + 60, "range_max": high - 60}
         return profile
 
     def cancel(self):
         if self.capture:
             self.capture["bus"].close()
             self.capture = None
-
-    def certify(self, port, role, arm_id, cert_dir):
-        engine = CertificationEngine(cert_dir=cert_dir)
-        bus = self.bus_factory(port=port)
-        bus.open()
-        try:
-            return engine.certify_arm(role=role, port=port, arm_id=arm_id, bus_override=bus,
-                                      clear_errors=False, unlock_eeprom=True).to_dict()
-        finally:
-            bus.close()

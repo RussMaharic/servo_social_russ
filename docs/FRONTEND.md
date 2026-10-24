@@ -6,17 +6,17 @@ directory now supports private Supabase Postgres via the `directory` extra;
 local development can continue using SQLite. No cloud deployment is claimed yet.
 
 The browser workspace guides users through installation, a unique username,
-USB selection, measured motor inspection, calibration, qualification and remote
+USB selection, measured motor inspection, calibration and remote
 follower discovery. There are no email/password accounts or fictional devices.
 
 ## Register and use your pair
 
 Open **My arms** to register one leader and one follower on this computer.
 Give each a name and select its own USB controller. Complete inspection,
-calibration and qualification for each; their profiles and certificates stay
+calibration for each; their profiles stay
 separate, and adding the second arm preserves the first arm's setup.
 
-After follower qualification, **Share my follower** explicitly opens its
+After follower calibration, **Share my follower** explicitly opens its
 PIN-protected listener and publishes it to the configured community directory.
 The directory contains owner-added, owner-shared followers. The leader can
 select its own follower or another owner's available SO-101 follower. Its own
@@ -43,7 +43,7 @@ A source-launched service is labelled **Running from project source**. The user
 can explicitly confirm using that compatible runtime, or download a packaged
 app. Detection alone never completes installation. Confirmation is bound to
 version, build and runtime kind; changing those requires confirmation again.
-Usernames, profiles, controller bindings and certificates are not deleted.
+Usernames, profiles and controller bindings are not deleted.
 
 Windows, macOS and Linux each have an installation tab. The Windows portable
 app bundles Python. Source downloads support all three; macOS (Apple Silicon
@@ -101,15 +101,10 @@ username cannot be reclaimed by simply typing it again; back up station data.
    30-tick bounds removed at each end. This is a software acceptance threshold,
    not proof of full mechanical travel. Never force a joint. Cancellation,
    an encoder jump, missing reads or browser loss ends capture.
-4. Qualification requires explicit confirmation. Every motor must satisfy power,
-   temperature and error checks. The follower shoulder limit may be updated to
-   3300 ticks. Qualification primes current holding targets, briefly verifies
-   all six torque registers, then releases and verifies torque. A failure does
-   not issue a passing record. The JSON certificate uses the SDK README schema.
-5. Enter the dashboard. On a follower station, explicitly share a listener and
+4. Enter the dashboard. On a follower station, explicitly share a listener and
    optionally let the SDK create a Pinggy public address. Share the displayed PIN
    privately. On a leader station, select a listed follower and enter that PIN.
-6. Connecting reads state without enabling motion. A separate enable action
+5. Connecting reads state without enabling motion. A separate enable action
    anchors relative joint tracking to both arms' current poses. Targets are
    clamped to measured ranges and limited to 30°/s, with a nominal maximum
    software loop of 60 Hz. Actual throughput depends on serial/network latency.
@@ -118,8 +113,8 @@ One leader and one follower can run on separate controllers in the same
 companion. Their session engines and profiles are independent; follower sharing
 can stay active while the leader controls another arm. The swarm CLI is separate.
 
-The browser session protocol is `t2-connect/1`. Both stations need this companion;
-it reuses SDK servo transport, packets, certificate schema and Pinggy management,
+The browser session protocol is `t2-connect/2`. Both stations need this companion;
+it reuses SDK servo transport, packets and Pinggy management,
 but does not connect to legacy `t2-bots peer` listeners, which enable motion on
 their first trajectory packet. This distinction preserves explicit UI enabling.
 
@@ -135,16 +130,15 @@ is reported; a software stop cannot guarantee release after a hardware failure.
 
 The default data directory is `~/.config/t2_bots/connect`; `T2_CONNECT_HOME`
 overrides it for tests or isolated stations. It holds device credentials,
-controller bindings, certificates and saved calibration. Previous calibration
+controller bindings and saved calibration. Previous calibration
 versions are backed up before replacement. The companion uses its own explicit
-profile path, so qualification does not overwrite captured ranges or LeRobot
-cache profiles. Back up this directory privately; never distribute station.json.
+profile path, separate from LeRobot cache profiles. Back up this directory privately; never distribute station.json.
 
-Qualification is a locally generated hardware report, valid for 30 days. Its
-SDK hash detects ordinary modification but uses a public SDK salt and is not
-proof of an independent authority's inspection. The directory does not establish
-physical safety or identity from a username or certificate alone. PINs are never
-published. Use a trusted private network or protected transport: a `ws://` public
+Saved calibration is the only setup requirement for sharing and connecting;
+certification, grades and certificate expiry are not used. The directory stores
+a calibration-readiness flag, not a qualification certificate. Both stations and
+the directory must be updated together for protocol version 2. Existing saved
+calibrations continue to work. PINs are never published. Use a trusted private network or protected transport: a `ws://` public
 address is not end-to-end TLS merely because Pinggy uses SSH on one tunnel leg.
 
 ## Build downloads

@@ -1,7 +1,6 @@
 """Loopback-only companion and browser workspace."""
 import argparse
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -14,17 +13,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from t2_bots.connect.directory import endpoint_url
 from t2_bots.connect.hardware import Hardware, discover
 from t2_bots.connect.sessions import Sessions
-from t2_bots.connect.storage import LocalStore, atomic_json, digest
+from t2_bots.connect.storage import LocalStore, digest
 from t2_bots.connect.runtime import Runtime, API_VERSION, platform_audit
 from t2_bots import __version__
-from t2_bots.core.certification import verify_certificate
 
 ASSETS = Path(__file__).parent / "static"
 
@@ -70,16 +68,7 @@ class Companion:
         return None
 
     def ready(self, role=None):
-        arm = self.store.data["arms"].get(role or self.role, {})
-        cert = arm.get("certificate")
-        path = self.store.profile_path(role or self.role)
-        if not cert or not path.exists() or not verify_certificate(cert) or cert.get("grade") != "A+":
-            return False
-        try:
-            profile = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return False
-        return arm.get("calibration_hash") == digest(profile) == arm.get("certificate_calibration_hash")
+        return self.calibrated(role)
 
     def selected(self, role=None):
         device = self.current_device(role)
@@ -211,7 +200,7 @@ class Companion:
                         else:
                             await asyncio.to_thread(self.cloud, "PUT", "/v1/follower", {
                                 "label": self.label, "endpoint": self.follower_sessions.endpoint,
-                                "certificate": self.store.data["arms"]["follower"]["certificate"], "busy": self.follower_sessions.busy})
+                                "calibrated": True, "busy": self.follower_sessions.busy})
                     if self.reservation:
                         if self.leader_sessions.status not in ("connected", "following"):
                             await self.stop("leader")
@@ -297,7 +286,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 arms[role] = {"assigned": bool(saved), "name": saved.get("name", "My " + role),
                               "identity": saved.get("identity", ""), "port": present["port"] if present else saved.get("port", ""),
                               "connected": present is not None, "calibrated": station.calibrated(role),
-                              "certified": station.ready(role) and present is not None}
+                              "ready": station.ready(role) and present is not None}
             return {"service": "t2-connect", "version": __version__, "api_version": API_VERSION,
                     "runtime": station.runtime.snapshot(station.store.data.get("runtime_approval")),
                     "platform_checks": station.platform_checks, "session_token": station.token,
@@ -307,7 +296,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                     "roles": list(station.store.data["arms"]), "arms": arms,
                     "inspection": station.inspection if device else None, "capture": capture,
                     "capture_error": station.capture_error,
-                    "calibrated": station.calibrated(), "certified": station.ready() and device is not None,
+                    "calibrated": station.calibrated(), "ready": station.ready() and device is not None,
                     "session": station.sessions.snapshot(), "publishing": station.publishing,
                     "leader_session": station.leader_sessions.snapshot(), "follower_session": station.follower_sessions.snapshot(),
                     "directory_error": station.directory_error}
@@ -439,34 +428,6 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 return {"saved": True}
             raise ValueError("Unknown calibration action.")
 
-    @app.post("/api/certify")
-    async def certify(payload: dict):
-        if payload.get("confirmed") is not True:
-            raise ValueError("Confirm the supported arm and firmware/torque qualification checks.")
-        async with station.lock:
-            station.idle()
-            device = station.selected()
-            if not station.calibrated():
-                raise ValueError("Save calibration before certification.")
-            station.arm.pop("certificate", None)
-            station.store.save()
-            identifier = "SO101-" + station.role.upper() + "-" + hashlib.sha256(device["identity"].encode()).hexdigest()[:16]
-            cert = await asyncio.to_thread(station.hardware.certify, device["port"], station.role,
-                                          identifier, station.store.root / "certificates")
-            if cert.get("grade") != "A+" or not verify_certificate(cert):
-                raise ValueError("The arm did not pass all qualification checks.")
-            station.arm["certificate"] = cert
-            station.arm["certificate_calibration_hash"] = station.arm["calibration_hash"]
-            station.store.save()
-            return cert
-
-    @app.get("/api/certificate")
-    def certificate():
-        if not station.ready():
-            raise HTTPException(404, "No current certificate for this arm.")
-        return JSONResponse(station.arm["certificate"], headers={
-            "Content-Disposition": 'attachment; filename="' + station.arm["certificate"]["arm_id"] + '_qualification.json"'})
-
     @app.get("/api/followers")
     async def followers():
         if not station.store.data.get("username"):
@@ -478,13 +439,13 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
         async with station.lock:
             station.idle("follower")
             if not station.ready("follower"):
-                raise ValueError("Select and certify a follower before sharing.")
+                raise ValueError("Select and calibrate a follower before sharing.")
             if not station.store.data.get("username"):
                 raise ValueError("Choose a username and directory first.")
             if not payload.get("confirmed"):
                 raise ValueError("The follower owner must approve sharing.")
             follower = station.store.data["arms"]["follower"]
-            await station.follower_sessions.listen(station.selected("follower")["port"], station.profile("follower"), follower["certificate"],
+            await station.follower_sessions.listen(station.selected("follower")["port"], station.profile("follower"),
                                           public=payload.get("relay") is True)
             try:
                 endpoint = station.follower_sessions.endpoint if payload.get("relay") else endpoint_url(str(payload.get("endpoint", "")))
@@ -493,7 +454,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
                 follower["name"] = station.label
                 station.store.save()
                 await asyncio.to_thread(station.cloud, "PUT", "/v1/follower", {
-                    "label": station.label, "endpoint": endpoint, "certificate": follower["certificate"], "busy": False})
+                    "label": station.label, "endpoint": endpoint, "calibrated": True, "busy": False})
                 station.publishing = True
             except Exception:
                 await station.follower_sessions.stop()
@@ -505,7 +466,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
         async with station.lock:
             station.idle("leader")
             if not station.ready("leader"):
-                raise ValueError("Select and certify your leader first.")
+                raise ValueError("Select and calibrate your leader first.")
             follower = str(payload.get("id", ""))
             if not follower or len(follower) > 80 or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in follower):
                 raise ValueError("Select a follower from the directory.")
@@ -515,7 +476,7 @@ def create_app(root=None, hardware=None, scanner=discover, port=4840):
             reservation = await asyncio.to_thread(station.cloud, "POST", f"/v1/followers/{follower}/reserve")
             station.reservation = follower
             try:
-                await station.leader_sessions.connect(station.selected("leader")["port"], station.profile("leader"), station.store.data["arms"]["leader"]["certificate"], reservation["endpoint"], pin)
+                await station.leader_sessions.connect(station.selected("leader")["port"], station.profile("leader"), reservation["endpoint"], pin)
             except Exception:
                 await station.stop("leader")
                 raise

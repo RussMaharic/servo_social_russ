@@ -182,6 +182,19 @@ def assign(client, role="leader"):
     return client.post("/api/arm", json={"identity":DEVICE["identity"],"role":role})
 
 
+def test_calibrated_follower_needs_no_certificate(local):
+    client, station, bus, _ = local
+    assert assign(client, "follower").status_code == 200
+    saved = profile()
+    station.store.save_profile("follower", saved)
+    station.arm["calibration_hash"] = digest(saved)
+    before = station.store.profile_path("follower").read_bytes()
+    assert client.get("/api/state").json()["ready"]
+    assert not station.arm.get("certificate")
+    assert not bus.writes
+    assert station.store.profile_path("follower").read_bytes() == before
+
+
 def test_loopback_and_mutation_guards(local):
     client, station, _, _ = local
     assert client.get("/api/state", headers={"Host":"evil.example"}).status_code == 403
@@ -194,7 +207,7 @@ def test_loopback_and_mutation_guards(local):
 def test_empty_station_and_real_device_detection(local):
     client, _, _, devices = local
     state = client.get("/api/state").json()
-    assert not state["certified"] and state["session"]["status"] == "idle"
+    assert not state["ready"] and state["session"]["status"] == "idle"
     assert assign(client).status_code == 200
     assert client.post("/api/inspect").json()["passed"]
     devices.clear()
@@ -337,7 +350,7 @@ def test_calibration_reference_travel_and_binding(local):
     assert all(r["travel"]==200 for r in state["capture"]["ranges"])
     assert client.post("/api/calibration/save",json={"reviewed":True}).status_code == 200
     assert station.store.profile_path("leader").exists()
-    assert not client.get("/api/state").json()["certified"]
+    assert client.get("/api/state").json()["ready"]
     assert bus.closed
 
 
@@ -372,27 +385,27 @@ def test_passing_certificate_releases_all_motors(tmp_path):
     assert all(bus.values[m][Register.TORQUE_ENABLE]==0 for m in range(1,7))
 
 
-def test_calibration_change_invalidates_certificate(local):
+def test_calibration_change_invalidates_readiness(local):
     client,station,_,_=local
     assign(client)
     saved=profile(); station.store.save_profile("leader",saved)
     station.arm.update(calibration_hash=digest(saved),certificate_calibration_hash=digest(saved),certificate=cert("leader"))
-    assert client.get("/api/state").json()["certified"]
-    assert client.get("/api/certificate").headers["content-disposition"].endswith('_qualification.json"')
+    assert client.get("/api/state").json()["ready"]
+    assert client.get("/api/certificate").status_code == 404
     saved["gripper"]["range_min"]+=1
     station.store.save_profile("leader",saved)
-    assert not client.get("/api/state").json()["certified"]
+    assert not client.get("/api/state").json()["ready"]
 
 
-def test_browser_certification_preserves_calibration(local):
+def test_removed_certification_endpoint_preserves_calibration(local):
     client,station,bus,_=local
     assign(client)
     saved=profile(); station.store.save_profile("leader",saved)
     station.arm["calibration_hash"]=digest(saved)
     before=station.store.profile_path("leader").read_bytes()
     response=client.post("/api/certify",json={"confirmed":True})
-    assert response.status_code==200
-    assert client.get("/api/state").json()["certified"]
+    assert response.status_code==405
+    assert client.get("/api/state").json()["ready"]
     assert station.store.profile_path("leader").read_bytes()==before
     assert all(bus.values[m][Register.TORQUE_ENABLE]==0 for m in range(1,7))
 
@@ -435,7 +448,7 @@ def test_directory_expiry_and_exclusive_reservation(hub):
     _,owner=register(client,"owner")
     _,leader=register(client,"leader","device-b-"+"b"*24)
     _,other=register(client,"other","device-c-"+"c"*24)
-    response=client.put("/v1/follower",headers=owner,json={"label":"Lab arm","endpoint":"ws://lab.example:8765","certificate":cert()})
+    response=client.put("/v1/follower",headers=owner,json={"label":"Lab arm","endpoint":"ws://lab.example:8765","calibrated":True})
     assert response.status_code==200
     follower=client.get("/v1/followers").json()["followers"][0]
     assert follower["available"] and "pin" not in follower
@@ -447,12 +460,12 @@ def test_directory_expiry_and_exclusive_reservation(hub):
     assert client.get("/v1/followers").json()["followers"]==[]
 
 
-def test_publication_requires_credential_and_current_certificate(hub):
+def test_publication_requires_credential_and_calibration(hub):
     client,_=hub
-    payload={"label":"Arm","endpoint":"ws://lab.example:8765","certificate":cert()}
+    payload={"label":"Arm","endpoint":"ws://lab.example:8765","calibrated":True}
     assert client.put("/v1/follower",json=payload).status_code==403
     _,headers=register(client)
-    payload["certificate"]["grade"]="FAILED"
+    payload["calibrated"]=False
     assert client.put("/v1/follower",headers=headers,json=payload).status_code==422
 
 
@@ -465,12 +478,16 @@ def test_endpoint_validation(url):
 async def test_session_connect_does_not_move_then_enable_and_stop():
     from t2_bots.connect.sessions import Sessions
     follower_bus, leader_bus = FakeBus(), FakeBus()
+    # A leader can start from any valid encoder position. Its current pose is
+    # the relative-motion baseline and connecting never energises the follower.
+    leader_bus.values[2][Register.PRESENT_POSITION] = 900
+    follower_bus.values[2][Register.PRESENT_POSITION] = 900
     follower = Sessions(Hardware(lambda **kwargs: follower_bus))
     leader = Sessions(Hardware(lambda **kwargs: leader_bus))
     try:
-        await follower.listen("FAKE",profile(),cert(),listen_port=0)
+        await follower.listen("FAKE",profile(),listen_port=0)
         port=follower.server.sockets[0].getsockname()[1]
-        await leader.connect("FAKE",profile(),cert("leader"),f"ws://127.0.0.1:{port}",follower.pin)
+        await leader.connect("FAKE",profile(),f"ws://127.0.0.1:{port}",follower.pin)
         await asyncio.sleep(.1)
         assert not leader.enabled and not follower.enabled
         assert not follower_bus.writes
@@ -479,7 +496,8 @@ async def test_session_connect_does_not_move_then_enable_and_stop():
             if leader.enabled: break
             await asyncio.sleep(.025)
         assert leader.enabled and follower.enabled
-        assert all(follower_bus.values[m][Register.GOAL_POSITION]==2000 for m in range(1,7))
+        assert follower_bus.values[2][Register.GOAL_POSITION] == 900
+        assert all(follower_bus.values[m][Register.GOAL_POSITION] == 2000 for m in (1,3,4,5,6))
         leader_bus.values[1][Register.PRESENT_POSITION]=2100
         await asyncio.sleep(.1)
         target=follower_bus.values[1][Register.GOAL_POSITION]
@@ -498,11 +516,11 @@ async def test_follower_watchdog_and_exclusive_operator():
     from t2_bots.connect.sessions import Sessions,PROTOCOL
     bus=FakeBus(); follower=Sessions(Hardware(lambda **kwargs:bus))
     try:
-        await follower.listen("FAKE",profile(),cert(),listen_port=0)
+        await follower.listen("FAKE",profile(),listen_port=0)
         port=follower.server.sockets[0].getsockname()[1]
         url=f"ws://127.0.0.1:{port}"
         async with websockets.connect(url) as first:
-            await first.send(json.dumps({"protocol":PROTOCOL,"pin":follower.pin,"certificate":cert("leader")}))
+            await first.send(json.dumps({"protocol":PROTOCOL,"pin":follower.pin,"role":"leader","calibrated":True}))
             assert json.loads(await first.recv())["status"]=="connected"
             async with websockets.connect(url) as second:
                 with pytest.raises(websockets.exceptions.ConnectionClosed): await second.recv()

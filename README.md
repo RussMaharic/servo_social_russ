@@ -23,13 +23,13 @@ on macOS/Linux. The source launcher needs Python 3.10+; the generated portable
 Windows app bundles Python. The workspace opens at **http://127.0.0.1:4840/**.
 
 The flow is **install → choose a unique username → detect USB → inspect motors
-→ calibrate → certify → browse shared followers → connect → explicitly enable**.
+→ calibrate → browse shared followers → connect → explicitly enable**.
 No email, password or login screen is required. Users need a shared directory
 address; for development, run `t2-directory --port 8090` on localhost.
 
 Each computer can register **one leader and one follower** under **My arms**.
-Add your own controllers, then inspect, calibrate and qualify each arm separately.
-Adding a follower keeps your existing leader calibration. Qualified followers
+Add your own controllers, then inspect and calibrate each arm separately.
+Adding a follower keeps your existing leader calibration. Calibrated followers
 appear in the directory only after their owner explicitly shares them.
 Your leader can connect to your own shared follower or another owner's available
 SO-101 follower. The same computer can share its follower while its leader
@@ -154,7 +154,7 @@ this repository or wheel; installing the test dependencies does not restore it.
 
 ## 5. Mission 1: Qualify & Certify Your Arm
 
-Every robot arm must pass hardware qualification before teleoperation.
+The Connect dashboard requires saved calibration for each arm. Certification is not required to share or connect; the optional legacy CLI qualification command is described below.
 
 ### Step 1: Run the Hardware Certification Command
 Connect your arm USB cable and power supply. Run:

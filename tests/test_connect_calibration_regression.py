@@ -85,7 +85,7 @@ def test_wide_sweep_of_all_six_joints_saves_without_browser_sampling(local):
         assert station.hardware.capture is not None
         assert station.hardware.capture["last"][6] == position
     assert client.post("/api/calibration/save", json={"reviewed": True}).status_code == 200
-    assert all(joint["range_min"] == 830 and joint["range_max"] == 3170 for joint in station.profile().values())
+    assert all(joint["range_min"] == 860 and joint["range_max"] == 3140 for joint in station.profile().values())
     assert all(reg == Register.TORQUE_ENABLE and value == 0 for _, reg, value in bus.writes)
 
 

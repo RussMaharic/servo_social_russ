@@ -7,9 +7,12 @@ No cloud resources have been provisioned or deployed by preparing these files.
 ## 1. Run the schema in Supabase
 
 Open `supabase/migrations/20261024080538_create_t2_directory.sql`, copy the
-contents into the SQL Editor, and run them. The migration creates a private
-`t2_directory` schema and a dedicated `t2_directory_app` login role. Existing
-application tables are not changed. Do not add this schema to the public Data API.
+contents into the SQL Editor, and run it. Then run
+`supabase/migrations/20261024163000_move_t2_directory_to_public.sql`. The second
+migration moves `devices` and `followers` into the default `public` schema so
+they appear in Table Editor. RLS remains enabled and the `anon` and
+`authenticated` roles receive no access; only the Render database role can use
+them.
 
 Then run a separate query, replacing the placeholder with a long random password:
 
@@ -25,7 +28,7 @@ You can inspect the result without exposing credentials:
 
 ```sql
 select schemaname, tablename, rowsecurity
-from pg_tables where schemaname = 't2_directory';
+from pg_tables where schemaname = 'public' and tablename in ('devices', 'followers');
 
 select rolname, rolcanlogin, rolsuper, rolbypassrls
 from pg_roles where rolname = 't2_directory_app';
@@ -87,8 +90,8 @@ on users' computers. Standalone signed installers remain a separate release task
 2. Download the offered source ZIP and verify it opens and includes `START-HERE.txt`.
 3. Start the companion locally. Confirm its runtime, then claim a username against
    the Render directory. For an existing development station, change its directory
-   address in station settings; calibration and certificates remain local.
-4. Add and qualify your follower, then explicitly share it. Use another station
+   address in station settings; calibration remains local.
+4. Add and calibrate your follower, then explicitly share it. Use another station
    to check that it appears and can be reserved by only one operator.
 5. Connect read-only first. Hardware following still requires explicit enabling.
 

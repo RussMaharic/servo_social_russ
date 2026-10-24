@@ -28,13 +28,13 @@ test('hosted entry offers honest installation without invented releases',async()
 
 test('no helper cannot advance onboarding',async()=>{
   const w=await workspace();w.run('go(3)');
-  assert.match(w.html(),/STEP 1 OF 6/);
+  assert.match(w.html(),/STEP 1 OF 5/);
 });
 
 const station={service:'t2-connect',version:'0.3.1',api_version:1,
   runtime:{kind:'packaged',platform:'win32',sdk_version:'0.3.1',build_id:'test-build',python_version:'3.12.14',compatible:true,acknowledged:true,checks:[]},
   session_token:'test-only',username:'orbit',
-  role:'leader',arm:{port:'TEST'},ports:[],connected:false,calibrated:false,certified:false,roles:['leader'],
+  role:'leader',arm:{port:'TEST'},ports:[],connected:false,calibrated:false,roles:['leader'],
   session:{status:'idle',enabled:false}};
 
 test('empty directory is actionable and has no fake followers',async()=>{
@@ -45,14 +45,14 @@ test('empty directory is actionable and has no fake followers',async()=>{
 
 test('user supplied directory labels are escaped',async()=>{
   const w=await workspace();
-  w.run(`online=true;state=${JSON.stringify({...station,certified:true,connected:true})};route='dashboard';followers=[{id:'device',owner:'owner',label:'<img src=x onerror=alert(1)>',available:true,certificate:{grade:'A+',diagnostics:{bus_voltage_v:12}}}];render()`);
+  w.run(`online=true;state=${JSON.stringify({...station,calibrated:true,connected:true})};route='dashboard';followers=[{id:'device',owner:'owner',label:'<img src=x onerror=alert(1)>',available:true,calibrated:true}];render()`);
   assert.doesNotMatch(w.html(),/<img src=x/);
   assert.match(w.html(),/&lt;img/);
 });
 
 test('connect-only session exposes explicit enable and stop',async()=>{
   const w=await workspace();
-  w.run(`online=true;state=${JSON.stringify({...station,certified:true,session:{status:'connected',enabled:false}})};route='dashboard';render()`);
+  w.run(`online=true;state=${JSON.stringify({...station,calibrated:true,session:{status:'connected',enabled:false}})};route='dashboard';render()`);
   assert.match(w.html(),/movement is not enabled/);
   assert.match(w.html(),/data-action="enable"/);
   assert.match(w.html(),/data-stop-role="leader"/);
@@ -62,13 +62,13 @@ test('a stale service cannot mark installation complete',async()=>{
   const w=await workspace({...station,version:'0.2.0'});
   assert.equal(w.run('online'),false);
   assert.match(w.html(),/Update (the )?companion/i);
-  assert.match(w.html(),/STEP 1 OF 6/);
+  assert.match(w.html(),/STEP 1 OF 5/);
 });
 
 test('unverified source runtime stays on installation step',async()=>{
   const w=await workspace({...station,version:'0.3.1',api_version:1,
     runtime:{kind:'source',sdk_version:'0.3.1',python_version:'3.12.14',compatible:true,acknowledged:false,checks:[]}});
-  assert.match(w.html(),/STEP 1 OF 6/);
+  assert.match(w.html(),/STEP 1 OF 5/);
   assert.doesNotMatch(w.html(),/Your companion is connected/);
   assert.match(w.html(),/source/i);
 });
@@ -103,7 +103,7 @@ test('current source runtime can be confirmed without claiming a download happen
   const w=await workspace({...station,runtime:{...station.runtime,kind:'source',acknowledged:false}});
   assert.match(w.html(),/does not mean you downloaded or installed/);
   assert.match(w.html(),/Use this verified source runtime/);
-  assert.match(w.html(),/STEP 1 OF 6/);
+  assert.match(w.html(),/STEP 1 OF 5/);
 });
 
 test('running Windows package does not ask for Python or another unpublished download',async()=>{
@@ -113,7 +113,7 @@ test('running Windows package does not ask for Python or another unpublished dow
   assert.match(w.html(),/This Windows companion is already running/);
   assert.doesNotMatch(w.html(),/Source setup · Python required|Download Python if needed|has not been published/);
   assert.match(w.html(),/Confirm this companion/);
-  assert.match(w.html(),/STEP 1 OF 6/);
+  assert.match(w.html(),/STEP 1 OF 5/);
 });
 
 test('installed package only satisfies prerequisites for its own operating system',async()=>{

@@ -97,7 +97,7 @@ class Runtime:
                 "compatible": compatible, "acknowledged": acknowledged,
                 "checks": checks,
                 "capabilities": ["bootstrap", "certification", "peer", "relay", "swarm", "deadman"],
-                "workspace_capabilities": ["onboarding", "calibration", "certification", "single_follower_dashboard"]}
+                "workspace_capabilities": ["onboarding", "calibration", "single_follower_dashboard"]}
 
     def approval(self):
         return {"version": __version__, "build_id": self.build, "kind": self.kind}
@@ -125,6 +125,6 @@ def platform_audit():
         # The SDK's Windows helper swallows probe failures and returns an empty
         # list. An empty result is not proof that a missing driver is healthy.
         return [{"label": "Windows USB drivers", "status": "info",
-                 "detail": "A missing controller cannot be certified from the browser. Plug it in, check Device Manager, and install only its matching CH340/CH343, FTDI or CP210x driver if needed.",
+                 "detail": "A missing controller cannot be calibrated from the browser. Plug it in, check Device Manager, and install only its matching CH340/CH343, FTDI or CP210x driver if needed.",
                  "command": "t2-bots bootstrap --no-auto --json"}]
     return [{"label": "Operating system", "status": "action_needed", "detail": "Use Windows, macOS or Linux."}]

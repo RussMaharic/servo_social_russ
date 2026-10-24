@@ -7,7 +7,7 @@ const code=fs.readFileSync(path.join(__dirname,'../src/t2_bots/connect/static/ap
 const station={service:'t2-connect',version:'0.3.1',api_version:1,
  runtime:{kind:'packaged',platform:'win32',sdk_version:'0.3.1',build_id:'current',compatible:true,acknowledged:true,checks:[]},
  username:'operator',role:'leader',arm:{port:'TEST'},ports:[],roles:['leader'],connected:true,
- calibrated:false,certified:false,inspection:{passed:true},capture:null,session:{status:'idle',enabled:false}};
+ calibrated:false,inspection:{passed:true},capture:null,session:{status:'idle',enabled:false}};
 async function workspace(state=station,initialRelease={},currentRelease=initialRelease){
  const elements={'#app':{innerHTML:''},'#toast':{hidden:true}};
  const listeners={};
@@ -29,8 +29,8 @@ async function workspace(state=station,initialRelease={},currentRelease=initialR
          click:action=>listeners.click({target:{closest:()=>({dataset:{action}})},preventDefault:()=>{}})};
 }
 
-test('users can open My arms and the directory before qualification to add their own follower',async()=>{
- const state={...station,certified:false,arms:{leader:{assigned:true,name:'Desk leader',identity:'usb-leader',connected:true,calibrated:false,certified:false},follower:{assigned:false,certified:false}},ports:[{identity:'usb-leader',port:'COM1',label:'Leader USB'}]};
+test('users can open My arms and the directory before calibration to add their own follower',async()=>{
+ const state={...station,calibrated:false,arms:{leader:{assigned:true,name:'Desk leader',identity:'usb-leader',connected:true,calibrated:false},follower:{assigned:false,calibrated:false}},ports:[{identity:'usb-leader',port:'COM1',label:'Leader USB'}]};
  const w=await workspace(state);
  w.fetchState(async url=>({ok:true,json:async()=>url==='/api/followers'?{followers:[],configured:true}:state}));
  await w.click('dashboard');
@@ -46,8 +46,8 @@ test('users can open My arms and the directory before qualification to add their
 });
 
 test('a leader owner can share their registered follower and connect to it without a second PIN prompt',async()=>{
- const arms={leader:{assigned:true,connected:true,certified:true,name:'My leader'},follower:{assigned:true,connected:true,certified:true,name:'My follower'}};
- const follower={id:'own-device',label:'Desk follower',owner:'operator',available:true,certificate:{grade:'A+',diagnostics:{bus_voltage_v:12}}};
+ const arms={leader:{assigned:true,connected:true,calibrated:true,name:'My leader'},follower:{assigned:true,connected:true,calibrated:true,name:'My follower'}};
+ const follower={id:'own-device',label:'Desk follower',owner:'operator',available:true,calibrated:true};
  let current={...station,device_id:'own-device',arms,publishing:false,leader_session:{status:'idle'},follower_session:{status:'idle'}};
  const w=await workspace(current);
  w.run("route='dashboard';render()");
@@ -168,7 +168,7 @@ test('a forced post-action refresh waits for the in-flight poll then reads fresh
  await Promise.all([poll,actionRefresh]);
  assert.equal(calls,2);
  assert.equal(w.run('state.calibrated'),true);
- assert.equal(w.run('step'),5);
+ assert.equal(w.run('step'),4);
 });
 test('calibration save requires a reference and measured travel on all six joints',async()=>{
  const names=['shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper'];
@@ -187,4 +187,23 @@ test('an active source runtime does not create another download loop',async()=>{
  assert.match(w.html(),/source runtime is already running/);
  assert.doesNotMatch(w.html(),/has not been published|Download Python if needed/);
  assert.match(w.html(),/trusted code signing/);
+});
+
+
+test('saved calibration finishes setup and opens the dashboard without certification',async()=>{
+ const current={...station,calibrated:true};
+ const w=await workspace(current);
+ assert.equal(w.run('steps.length'),5);
+ assert.match(w.html(),/Enter my dashboard/);
+ assert.doesNotMatch(w.html(),/Get certified|Run qualification|Download certificate/);
+ w.fetchState(async url=>({ok:true,json:async()=>url==='/api/followers'?{followers:[],configured:true}:current}));
+ await w.click('dashboard');
+ assert.equal(w.run('route'),'dashboard');
+});
+
+test('a disconnected calibrated leader cannot start a dashboard connection',async()=>{
+ const current={...station,arms:{leader:{assigned:true,connected:false,calibrated:true}}};
+ const w=await workspace(current);
+ w.run("route='dashboard';followers=[{id:'remote',owner:'owner',label:'Follower',available:true,calibrated:true}];render()");
+ assert.match(w.html(),/data-connect="remote" disabled/);
 });

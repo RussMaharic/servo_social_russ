@@ -12,11 +12,11 @@ from t2_bots.connect.hardware import Hardware
 from t2_bots_so101.driver.registers import Register
 
 
-async def add_qualified(client, station, device, role):
+async def add_calibrated(client, station, device, role):
     await post(client, "arm", {"role": role, "identity": device["identity"], "name": "Desk " + role})
     saved = profile()
     station.store.save_profile(role, saved)
-    station.arm.update(calibration_hash=digest(saved), certificate_calibration_hash=digest(saved), certificate=cert(role))
+    station.arm.update(calibration_hash=digest(saved))
     station.store.save()
 
 
@@ -36,9 +36,9 @@ async def test_owner_registers_pair_and_controls_own_then_remote_follower(tmp_pa
         await post(client, "runtime/confirm", {"confirmed": True, "build_id": state["runtime"]["build_id"]})
         await post(client, "identity", {"username": "pair_owner", "directory_url": directory_url})
         for role, device in zip(("leader", "follower"), devices):
-            await add_qualified(client, station, device, role)
+            await add_calibrated(client, station, device, role)
         state = (await client.get("/api/state")).json()
-        assert all(state["arms"][r]["certified"] for r in ("leader", "follower"))
+        assert all(state["arms"][r]["ready"] for r in ("leader", "follower"))
         assert (await client.post("/api/arm", json={"role": "follower", "identity": "usb-leader"})).status_code == 400
         original = station.store.profile_path("leader").read_bytes()
         await post(client, "arm/select", {"role": "leader"})
@@ -83,17 +83,17 @@ async def test_owner_registers_pair_and_controls_own_then_remote_follower(tmp_pa
         from t2_bots.connect.sessions import Sessions
         remote = Sessions(Hardware(lambda **kwargs: remote_bus))
         guest = Sessions(Hardware(lambda **kwargs: FakeBus("guest-leader")))
-        await remote.listen("remote", profile(), cert(), listen_port=0)
+        await remote.listen("remote", profile(), listen_port=0)
         try:
             remote_port = remote.server.sockets[0].getsockname()[1]
             directory = await stack.enter_async_context(httpx.AsyncClient(base_url=directory_url))
             identity = {"username": "remote_owner", "device_id": "remote-device-" + "x" * 24, "credential": "private-" + "y" * 40}
             assert (await directory.post("/v1/identity", json=identity)).status_code == 200
             headers = {"X-Device-ID": identity["device_id"], "Authorization": "Bearer " + identity["credential"]}
-            assert (await directory.put("/v1/follower", headers=headers, json={"label": "Remote follower", "certificate": cert(), "endpoint": f"ws://127.0.0.1:{remote_port}"})).status_code == 200
+            assert (await directory.put("/v1/follower", headers=headers, json={"label": "Remote follower", "calibrated": True, "endpoint": f"ws://127.0.0.1:{remote_port}"})).status_code == 200
             await post(client, "session/connect", {"id": identity["device_id"], "pin": remote.pin})
             assert station.publishing and station.leader_sessions.status == "connected"
-            await guest.connect("guest-leader", profile(), cert("leader"), station.follower_sessions.endpoint, shared["pin"])
+            await guest.connect("guest-leader", profile(), station.follower_sessions.endpoint, shared["pin"])
             assert not station.follower_sessions.enabled
             guest.enable_requested = True
             await eventually(lambda: station.follower_sessions.enabled)

@@ -409,9 +409,22 @@ class CertificationEngine:
             holding_torque_qualified = False
             if role_str == "follower":
                 try:
+                    posture_issues = []
                     for mid in motor_ids:
-                        if not min_limits[mid] + safety_margin_ticks <= positions_raw[mid] <= max_limits[mid] - safety_margin_ticks:
-                            raise CertificationError(f"Motor {mid}: move at least {safety_margin_ticks} ticks away from firmware end limits.")
+                        low = min_limits[mid] + safety_margin_ticks
+                        high = max_limits[mid] - safety_margin_ticks
+                        if not low <= positions_raw[mid] <= high:
+                            name = JOINT_ID_MAP[mid].replace("_", " ")
+                            posture_issues.append(
+                                f"Motor {mid} ({name}): current {positions_raw[mid]} ticks; "
+                                f"required {low}–{high} ticks")
+                    if posture_issues:
+                        raise CertificationError(
+                            f"Support the arm and reposition these joints gently by hand, at least "
+                            f"{safety_margin_ticks} ticks inside firmware limits. "
+                            + "; ".join(posture_issues)
+                            + ". Do not force a joint. Calibration is saved; retry qualification after repositioning.")
+                    for mid in motor_ids:
                         bus.write_word(mid, Register.GOAL_POSITION, positions_raw[mid])
                         if bus.read_word(mid, Register.GOAL_POSITION) != positions_raw[mid]:
                             raise CertificationError(f"Motor {mid}: holding target readback failed.")

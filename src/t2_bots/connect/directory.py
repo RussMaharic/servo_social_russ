@@ -16,7 +16,6 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from t2_bots.core.certification import verify_certificate
 
 
 def endpoint_url(value):
@@ -42,7 +41,7 @@ class Identity(BaseModel):
 class Publication(BaseModel):
     label: str = Field(min_length=1, max_length=60)
     endpoint: str = Field(max_length=300)
-    certificate: dict
+    calibrated: bool = False
     busy: bool = False
 
 
@@ -109,21 +108,22 @@ class Directory:
         with self.db() as db:
             rows = db.execute("SELECT followers.*, devices.username FROM followers JOIN devices ON devices.id=followers.id WHERE seen>? ORDER BY label", (now - 25,)).fetchall()
         return [{"id": r["id"], "label": r["label"], "owner": r["username"],
-                 "endpoint": r["endpoint"], "certificate": json.loads(r["certificate"]),
+                 "endpoint": r["endpoint"], "calibrated": json.loads(r["certificate"]).get("calibrated") is True,
                  "last_seen": r["seen"], "available": not r["busy"] and r["held_until"] < now}
                 for r in rows]
 
     def publish(self, device, req):
         address = endpoint_url(req.endpoint)
-        cert = req.certificate
-        if len(json.dumps(cert)) > 8192 or not verify_certificate(cert) or cert.get("role") != "follower" or cert.get("grade") != "A+":
-            raise HTTPException(422, "A current passing follower certificate is required.")
+        if req.calibrated is not True:
+            raise HTTPException(422, "Complete follower calibration before sharing.")
+        # Preserve the deployed storage schema; this column now stores readiness.
+        readiness = {"calibrated": True}
         with self.lock, self.db() as db:
             db.execute("""INSERT INTO followers(id,label,endpoint,certificate,seen,busy)
                 VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
                 label=excluded.label, endpoint=excluded.endpoint, certificate=excluded.certificate,
                 seen=excluded.seen,busy=excluded.busy""",
-                       (device, req.label, address, json.dumps(cert), time.time(), int(req.busy)))
+                       (device, req.label, address, json.dumps(readiness), time.time(), int(req.busy)))
         return {"published": True}
 
     def reserve(self, device, follower):
