@@ -76,9 +76,12 @@ async function refresh(force=false){
   if(reloadRequested)return;
   polling=true;let finishPoll;pendingPoll=new Promise(resolve=>{finishPoll=resolve;});
   try{
-    const data=await api('state');if(await reloadUpdatedWorkspace(data))return;
+    let data=await api('state');if(await reloadUpdatedWorkspace(data))return;
     const wasOnline=online;connection=classifyRuntime(data);
     if(connection.status==='missing')throw new Error('No companion');
+    if(hostedWorkspace&&['source','detected'].includes(connection.status)&&data.runtime?.compatible===true&&release.build_id===data.runtime.build_id){
+      state=data;await api('runtime/confirm',{confirmed:true,build_id:data.runtime.build_id});data=await api('state');connection=classifyRuntime(data);
+    }
     connectionFailure='';
     state=data;online=['source','detected','ready'].includes(connection.status);
     if(!setupReady()){step=0;route='setup';pinned=false;}

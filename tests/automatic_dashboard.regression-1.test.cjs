@@ -8,6 +8,9 @@ const fs = require('node:fs');
 const source = fs.readFileSync('src/t2_bots/connect/static/app.js', 'utf8');
 
 test('a returning calibrated station automatically enters the dashboard', () => {
+  assert.match(source, /hostedWorkspace&&\['source','detected'\]\.includes\(connection\.status\)/);
+  assert.match(source, /release\.build_id===data\.runtime\.build_id/);
+  assert.match(source, /api\('runtime\/confirm',\{confirmed:true,build_id:data\.runtime\.build_id\}\)/);
   assert.match(source, /!wasOnline&&!pinned&&setupReady\(\)&&state\.username/);
   assert.match(source, /Object\.values\(state\.arms\|\|\{\}\)\.some\(arm=>arm\.calibrated\)/);
   assert.match(source, /route='dashboard';step=4;setTimeout\(\(\)=>loadDirectory\(\),0\)/);
