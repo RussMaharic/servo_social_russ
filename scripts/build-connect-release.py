@@ -89,7 +89,7 @@ def main():
         for path in ROOT.joinpath("src").rglob("*"):
             if path.is_file() and not any(part in ("__pycache__","downloads") or part.endswith(".egg-info") for part in path.parts):
                 archive.write(path,"t2-connect/"+path.relative_to(ROOT).as_posix())
-        for name in ("pyproject.toml","README.md","LICENSE","Start t2 Connect.cmd",
+        for name in ("pyproject.toml","README.md","LICENSE","Start Dexops.cmd", "Start Dexops.command", "Start t2 Connect.cmd",
                      "scripts/start-connect.ps1","scripts/start-connect.sh","scripts/build-connect-release.py",
                      "scripts/check-connect-release.py","scripts/connect_entry.py","docs/FRONTEND.md"):
             archive.write(ROOT/name,"t2-connect/"+name)
@@ -101,8 +101,9 @@ def main():
         archive.writestr("t2-connect/START-HERE.txt",
             f"Dexops {__version__} | build {build}\n\n"
             "Extract the entire ZIP before launching. Python 3.10+ and internet access are required for first setup.\n"
-            "Windows: open Start t2 Connect.cmd.\n"
-            "macOS / Linux: open Terminal in this t2-connect folder and run: bash scripts/start-connect.sh\n"
+            "Windows: open Start Dexops.cmd.\n"
+            "macOS: open Start Dexops.command. If macOS blocks it, Control-click it, choose Open, then confirm.\n"
+            "Linux: open Terminal in this t2-connect folder and run: bash scripts/start-connect.sh\n"
             "Keep the launcher running while using the browser workspace.\n\n"
             "Updating: finish/cancel calibration and stop teleoperation, then close the older companion before launching this copy.\n"
             "Your username and saved calibration remain in ~/.config/t2_bots/connect (or T2_CONNECT_HOME). Do not delete or share station.json.\n\n"
