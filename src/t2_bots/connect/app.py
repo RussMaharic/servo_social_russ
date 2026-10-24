@@ -531,8 +531,12 @@ def main():
     parser = argparse.ArgumentParser(description="Open the Dexops guided robot workspace")
     parser.add_argument("--port", type=int, default=4840)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--workspace-url", help="Open an approved hosted Dexops workspace instead of localhost")
     args = parser.parse_args()
     url = f"http://127.0.0.1:{args.port}"
+    workspace_url = str(args.workspace_url or "").rstrip("/")
+    if workspace_url and workspace_url not in DEPLOYED_WORKSPACES:
+        parser.error("The hosted workspace URL is not approved by this companion build.")
     try:
         with urllib.request.urlopen(url + "/api/state", timeout=0.5) as response:
             existing = json.load(response)
@@ -548,7 +552,7 @@ def main():
         pass
     if not args.no_browser:
         import threading
-        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.5, lambda: webbrowser.open(workspace_url + "/" if workspace_url else url)).start()
     uvicorn.run(create_app(port=args.port), host="127.0.0.1", port=args.port)
 
 

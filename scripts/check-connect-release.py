@@ -52,9 +52,12 @@ def check_release(assets, production=False, source_only=False):
                 with zipfile.ZipFile(path) as archive:
                     names = archive.namelist()
                     required = ["t2-Connect.exe", "START-HERE.txt"] if key == "windows" else [
-                        "t2-connect/pyproject.toml", "t2-connect/scripts/start-connect.sh",
-                        "t2-connect/Start Dexops.cmd", "t2-connect/Start Dexops.command"]
-                    if not all(name in names for name in required) or archive.testzip():
+                        "t2-connect/pyproject.toml", "t2-connect/scripts/start-connect.sh"]
+                    launchers = (("t2-connect/Start Dexops.cmd", "t2-connect/Start Dexops.command"),
+                                 ("t2-connect/Start t2 Connect.cmd",))
+                    if (not all(name in names for name in required)
+                            or key == "source" and not any(all(name in names for name in group) for group in launchers)
+                            or archive.testzip()):
                         errors.append(f"{key}: ZIP is incomplete or corrupted.")
                     if key == "source" and any("/downloads/" in name or "/.venv/" in name or name.endswith("/station.json") for name in names):
                         errors.append("Source ZIP contains nested downloads, environments or private station data.")

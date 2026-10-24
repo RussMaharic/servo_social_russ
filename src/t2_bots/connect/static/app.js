@@ -87,6 +87,7 @@ async function refresh(force=false){
     if(!draft.directory_url||!wasOnline)draft.directory_url=state.directory_url||release.directory_url||draft.directory_url;
     if(!draft.identity)draft.identity=state.arm?.identity||state.ports?.[0]?.identity||'';
     if(!wasOnline)draft.role=state.role||'leader';if(draft.label==='My SO-101'&&state.arms?.follower?.assigned)draft.label=state.arms.follower.name;
+    if(!wasOnline&&!pinned&&setupReady()&&state.username&&Object.values(state.arms||{}).some(arm=>arm.calibrated)){route='dashboard';step=4;setTimeout(()=>loadDirectory(),0);}
     if(state.session?.error)failure=state.session.error;
     if(!state.connected&&route==='dashboard')failure='Your controller is disconnected. Reconnect it before starting a session.';
   }catch(exc){

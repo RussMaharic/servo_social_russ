@@ -89,9 +89,11 @@ def main():
         for path in ROOT.joinpath("src").rglob("*"):
             if path.is_file() and not any(part in ("__pycache__","downloads") or part.endswith(".egg-info") for part in path.parts):
                 archive.write(path,"t2-connect/"+path.relative_to(ROOT).as_posix())
-        for name in ("pyproject.toml","README.md","LICENSE","Start Dexops.cmd", "Start Dexops.command", "Start t2 Connect.cmd",
-                     "scripts/start-connect.ps1","scripts/start-connect.sh","scripts/build-connect-release.py",
-                     "scripts/check-connect-release.py","scripts/connect_entry.py","docs/FRONTEND.md"):
+        package_files = ("pyproject.toml","README.md","LICENSE","Start t2 Connect.cmd",
+                         "scripts/start-connect.ps1","scripts/start-connect.sh","scripts/build-connect-release.py",
+                         "scripts/check-connect-release.py","scripts/connect_entry.py","docs/FRONTEND.md")
+        package_files += tuple(name for name in ("Start Dexops.cmd", "Start Dexops.command") if (ROOT / name).is_file())
+        for name in package_files:
             archive.write(ROOT/name,"t2-connect/"+name)
         cloud_guide = ROOT / "docs/CLOUD-SETUP.md"
         if cloud_guide.is_file():
@@ -102,6 +104,7 @@ def main():
             f"Dexops {__version__} | build {build}\n\n"
             "Extract the entire ZIP before launching. Python 3.10+ and internet access are required for first setup.\n"
             "Windows: open Start Dexops.cmd.\n"
+            "Windows: open Start t2 Connect.cmd if you need the legacy filename.\n"
             "macOS: open Start Dexops.command. If macOS blocks it, Control-click it, choose Open, then confirm.\n"
             "Linux: open Terminal in this t2-connect folder and run: bash scripts/start-connect.sh\n"
             "Keep the launcher running while using the browser workspace.\n\n"
