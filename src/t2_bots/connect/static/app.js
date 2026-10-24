@@ -23,7 +23,7 @@ const DEPLOYED_WORKSPACES=new Set(['play.trydexops.com','servosocialruss.vercel.
 const hostedWorkspace=typeof location!=='undefined'&&DEPLOYED_WORKSPACES.has(location.hostname);
 const apiRoot=hostedWorkspace?'http://127.0.0.1:4840/api/':'/api/';
 let connection={status:'missing',reason:''};
-let pendingPoll=Promise.resolve(),reloadRequested=false;
+let pendingPoll=Promise.resolve(),reloadRequested=false,directoryMigrationAttempted=false;
 const steps=['Install companion','Choose username','Connect your arm','Inspect motors','Calibrate'];
 let state=null, online=false, route='setup', step=0, pinned=false, busy=false, failure='', connectionFailure='', followers=[], directoryError='', release={}, lastSignature='', polling=false;
 const draft={arm_name:'',platform:'',username:'',directory_url:'http://127.0.0.1:8090',role:'leader',identity:'',label:'My SO-101',endpoint:'',relay:true,search:'',pin:'',target:''};
@@ -43,6 +43,7 @@ async function reloadUpdatedWorkspace(data){
 }
 function calibrationReady(cap){return !cap?.paused_error&&cap?.reference_set===true&&cap.ranges?.length===6&&cap.ranges.every(r=>r.travel>=120);}
 function setupReady(){return online&&state?.runtime?.acknowledged===true;}
+function localDirectory(url){return /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\/?$/i.test(url||'');}
 function ownedArm(role){return state?.arms?.[role]||{assigned:!!state?.roles?.includes(role),name:'My '+role,port:role===state?.role?state?.arm?.port:'',connected:role===state?.role&&!!state?.connected,calibrated:role===state?.role&&!!state?.calibrated};}
 function armSession(role){return state?.[role+'_session']||(state?.role===role?state?.session:null)||{status:'idle',enabled:false};}
 async function openArmSetup(role){
@@ -81,6 +82,11 @@ async function refresh(force=false){
     if(connection.status==='missing')throw new Error('No companion');
     if(hostedWorkspace&&['source','detected'].includes(connection.status)&&data.runtime?.compatible===true&&release.build_id===data.runtime.build_id){
       state=data;await api('runtime/confirm',{confirmed:true,build_id:data.runtime.build_id});data=await api('state');connection=classifyRuntime(data);
+    }
+    if(hostedWorkspace&&!directoryMigrationAttempted&&data.username&&localDirectory(data.directory_url)&&/^https:\/\//i.test(release.directory_url||'')){
+      directoryMigrationAttempted=true;state=data;
+      try{await api('identity',{username:data.username,directory_url:release.directory_url});data=await api('state');directoryError='';}
+      catch(exc){directoryError='Connect this station to the shared directory: '+exc.message;}
     }
     connectionFailure='';
     state=data;online=['source','detected','ready'].includes(connection.status);

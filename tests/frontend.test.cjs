@@ -17,16 +17,16 @@ test('Dexops identity uses a text wordmark, home path, and D favicon',()=>{
 
 async function workspace(runtime=null,releaseInfo={},hostname='localhost'){
   const elements={'#app':{innerHTML:''},'#toast':{hidden:true}};
-  const requests=[];
+  const requests=[],calls=[];
   const context=vm.createContext({
     document:{querySelector:s=>elements[s]||null,activeElement:null,addEventListener:()=>{}},
     navigator:{platform:'Win32'},location:{hostname,reload:()=>{}},CSS:{escape:x=>x},
     setInterval:()=>{},setTimeout:()=>{},clearTimeout:()=>{},console,
-    fetch:async (url,options={})=>{requests.push(url);return options.method==='HEAD'?{ok:true}:url==='release.json'?{ok:true,json:async()=>releaseInfo}:runtime?{ok:true,json:async()=>runtime}:{ok:false,json:async()=>({detail:'No local companion'})};}
+    fetch:async (url,options={})=>{requests.push(url);calls.push({url,options});return options.method==='HEAD'?{ok:true}:url==='release.json'?{ok:true,json:async()=>releaseInfo}:runtime?{ok:true,json:async()=>runtime}:{ok:false,json:async()=>({detail:'No local companion'})};}
   });
   vm.runInContext(source,context);
   await new Promise(resolve=>setImmediate(resolve));
-  return {run:s=>vm.runInContext(s,context),html:()=>elements['#app'].innerHTML,requests,setRuntime:value=>{runtime=value;}};
+  return {run:s=>vm.runInContext(s,context),html:()=>elements['#app'].innerHTML,requests,calls,setRuntime:value=>{runtime=value;}};
 }
 
 test('deployed origins stay on the hosted page and call the loopback API',async()=>{
@@ -37,6 +37,15 @@ test('deployed origins stay on the hosted page and call the loopback API',async(
     assert.match(w.html(),/This page will connect and continue automatically/);
     assert.doesNotMatch(w.html(),/data-action="connect-companion"/);
   }
+});
+
+test('deployed workspace replaces a stale localhost directory with the shared directory',async()=>{
+  const runtime={...station,directory_url:'http://127.0.0.1:8090'};
+  const directory='https://servo-social-russ-1.onrender.com';
+  const w=await workspace(runtime,{version:'0.3.1',build_id:'test-build',directory_url:directory},'servosocialruss.vercel.app');
+  const migration=w.calls.find(call=>call.url==='http://127.0.0.1:4840/api/identity');
+  assert.ok(migration);
+  assert.deepEqual(JSON.parse(migration.options.body),{username:'orbit',directory_url:directory});
 });
 
 test('hosted entry offers honest installation without invented releases',async()=>{
