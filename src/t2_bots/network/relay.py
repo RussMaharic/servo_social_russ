@@ -93,7 +93,7 @@ class PinggyRelayManager:
         cmd = [
             "ssh",
             "-o", "StrictHostKeyChecking=no",
-            "-o", "UserKnownHostsFile=/dev/null" if not sys.platform.startswith("win") else "NUL",
+            "-o", "UserKnownHostsFile=" + ("NUL" if sys.platform.startswith("win") else "/dev/null"),
             "-o", "ServerAliveInterval=30",
             "-o", "ServerAliveCountMax=3",
             "-o", "ExitOnForwardFailure=yes",
