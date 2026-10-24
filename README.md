@@ -47,6 +47,10 @@ packaging, data persistence and current limits. Both remote stations need the
 new companion. The original `dist/` wheel remains v0.2.0; install the source to
 use this interface. Hosting has not been deployed by adding these files.
 
+For the simplest $0 pilot without Supabase, follow the
+[Render Free + Vercel guide](docs/RENDER-FREE-SETUP.md). It runs with SQLite;
+directory registrations reset whenever Render's free instance restarts.
+
 For cloud setup with the prepared Supabase project, use the
 [SQL and environment setup guide](docs/CLOUD-SETUP.md). It includes the private
 database schema, Render-only connection secret, and Vercel's public directory URL.
