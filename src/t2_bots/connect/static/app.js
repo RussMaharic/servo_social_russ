@@ -126,8 +126,7 @@ function downloadPanel(){
       <div class="code"><code>${os==='windows'?'Start Dexops.cmd':os==='macos'?'Start Dexops.command':'bash scripts/start-connect.sh'}</code><button data-copy="${os==='windows'?'Start Dexops.cmd':os==='macos'?'Start Dexops.command':'bash scripts/start-connect.sh'}">Copy</button></div>
       <p>Source launchers install this checkout into its own virtual environment. On Debian/Ubuntu, install python3-venv if environment creation reports it missing. On Mac, use Python for your Mac’s architecture.</p>
     </details>
-    <div class="notice blue" role="status"><strong>Waiting for the Dexops companion.</strong><br>Start the downloaded launcher once. This page keeps checking automatically.</div>
-    <button class="button secondary wide" data-action="connect-companion">Connect automatically ${icon('arrow')}</button>`;
+    <div class="notice blue" role="status"><strong>Waiting for the Dexops companion.</strong><br>Run <code>dexops</code> from any terminal. This page will connect and continue automatically.</div>`;
 }
 function runtimeChecks(){const checks=state?.runtime?.checks||[];return checks.length?`<div class="runtime-checks">${checks.map(c=>`<div class="runtime-check"><span class="badge ${c.status==='ready'?'green':''}">${c.status==='ready'?'✓':c.required?'Required':'Optional'}</span><div><strong>${esc(c.label)}</strong><p>${esc(c.detail)}</p>${c.status!=='ready'&&c.command?`<div class="code"><code>${esc(c.command)}</code><button data-copy="${esc(c.command)}">Copy</button></div>`:''}</div></div>`).join('')}</div>`:'';}
 function installView(){
