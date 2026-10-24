@@ -143,6 +143,17 @@ class Directory:
             db.execute("SELECT id FROM devices LIMIT 1").fetchone()
 
 
+def sqlite_directory_path():
+    """Choose persistent storage automatically when Railway attaches a volume."""
+    configured = os.environ.get("T2_DIRECTORY_DB")
+    if configured:
+        return configured
+    railway_volume = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if railway_volume:
+        return str(Path(railway_volume) / "t2-directory.sqlite3")
+    return "directory.sqlite3"
+
+
 def create_app(db_path=None, database_url=None):
     database_url = database_url or (os.environ.get("T2_DATABASE_URL") if db_path is None else None)
     if database_url:
@@ -151,7 +162,7 @@ def create_app(db_path=None, database_url=None):
     else:
         if db_path is None and os.environ.get("T2_DIRECTORY_REQUIRE_POSTGRES") == "1":
             raise RuntimeError("Set the private T2_DATABASE_URL before starting the hosted directory.")
-        directory = Directory(db_path or os.environ.get("T2_DIRECTORY_DB", "directory.sqlite3"))
+        directory = Directory(db_path or sqlite_directory_path())
     app = FastAPI(title="t2 Connect directory", docs_url=None, redoc_url=None)
     app.state.directory = directory
     attempts = defaultdict(deque)
@@ -228,7 +239,8 @@ def create_app(db_path=None, database_url=None):
 def main():
     import uvicorn
     parser = argparse.ArgumentParser(description="Shared t2 Connect follower directory")
-    parser.add_argument("--host", default="127.0.0.1")
+    default_host = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT_NAME") else "127.0.0.1"
+    parser.add_argument("--host", default=default_host)
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8090")))
     args = parser.parse_args()
     uvicorn.run(create_app(), host=args.host, port=args.port)

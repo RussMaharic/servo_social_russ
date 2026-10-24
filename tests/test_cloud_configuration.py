@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from t2_bots.connect.directory import create_app
+from t2_bots.connect.directory import create_app, sqlite_directory_path
 from t2_bots.connect.postgres_directory import PostgresDirectory, PostgresQueries
 
 
@@ -15,6 +15,19 @@ def test_hosted_directory_refuses_silent_sqlite_fallback(monkeypatch, tmp_path):
     # Explicit isolated test/development stores still work.
     with TestClient(create_app(tmp_path / "dev.sqlite3")) as client:
         assert client.get("/healthz").status_code == 200
+
+
+def test_railway_volume_is_used_without_extra_database_variable(monkeypatch, tmp_path):
+    monkeypatch.delenv("T2_DIRECTORY_DB", raising=False)
+    monkeypatch.setenv("RAILWAY_VOLUME_MOUNT_PATH", str(tmp_path))
+    assert sqlite_directory_path() == str(tmp_path / "t2-directory.sqlite3")
+
+
+def test_explicit_sqlite_path_overrides_railway_volume(monkeypatch, tmp_path):
+    configured = tmp_path / "custom.sqlite3"
+    monkeypatch.setenv("RAILWAY_VOLUME_MOUNT_PATH", str(tmp_path / "volume"))
+    monkeypatch.setenv("T2_DIRECTORY_DB", str(configured))
+    assert sqlite_directory_path() == str(configured)
 
 
 @pytest.mark.parametrize("url", [

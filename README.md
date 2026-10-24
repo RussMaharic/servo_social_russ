@@ -51,6 +51,10 @@ For cloud setup with the prepared Supabase project, use the
 [SQL and environment setup guide](docs/CLOUD-SETUP.md). It includes the private
 database schema, Render-only connection secret, and Vercel's public directory URL.
 
+For the quickest pilot deployment, use the
+[Railway + Vercel guide](docs/RAILWAY-SETUP.md). It needs no Supabase keys: attach
+a Railway volume, generate its public domain, and give that URL to Vercel.
+
 ```
                                       PUBLIC INTERNET
 [ Leader Station ] <=========> [ Pinggy Cloud Relay ] <=========> [ Follower Station ]
