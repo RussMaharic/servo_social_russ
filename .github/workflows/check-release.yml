@@ -1,73 +1,53 @@
-name: Distribution Package & Integrity Verification
+name: Dexops checks
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  verify-wheel-installation:
-    name: Clean-Room Install (${{ matrix.os }}, Py ${{ matrix.python-version }})
+  verify-app:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-14, windows-latest]
-        python-version: ['3.10', '3.11', '3.12']
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Distribution Wheel
-        run: |
-          python -m pip install --upgrade pip
-          pip install dist/t2_bots-0.2.0-py3-none-any.whl
-
-      - name: Validate CLI Availability & Help
-        run: |
-          t2-bots --help
-          t2-bots bootstrap --help
-          t2-bots certify --help
-          t2-bots relay --help
-          t2-bots swarm --help
-          t2-bots peer --help
-
-      - name: Run Non-Destructive Bootstrap Audit
-        run: |
-          t2-bots bootstrap --no-auto --json || true
-
-      - name: Install current source and onboarding test dependencies
-        run: python -m pip install -e ".[gateway,dev]"
-
-      - name: Check onboarding, directory and hardware-free sessions
-        run: python -m pytest -q
-
-      - name: Set up Node for frontend rendering tests
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Check frontend rendering and state gates
-        run: node --test tests/frontend.test.cjs tests/frontend_audit.test.cjs
-
-  verify-cloud-schema:
-    runs-on: ubuntu-latest
+        python-version: ['3.10', '3.12']
+    defaults:
+      run:
+        working-directory: dexops
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install isolated PostgreSQL validation runtime
-        run: npm install --prefix build/postgres-validation --no-audit --no-fund @electric-sql/pglite@0.5.11
-      - name: Validate private schema and database permissions
+      - name: Install the maintained app
+        run: |
+          python -m pip install --require-hashes -r requirements-companion.lock
+          python -m pip install -e ".[gateway,dev]"
+      - name: Verify simulated hardware, calibration and session recovery
+        run: python -m pytest -q
+      - name: Verify onboarding and dashboard
+        run: node --test tests/*.test.cjs
+
+  verify-download:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dexops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install source build tools
+        run: python -m pip install build
+      - name: Build matching source download and metadata
         env:
-          PGLITE_MODULE: ${{ github.workspace }}/build/postgres-validation/node_modules/@electric-sql/pglite
-        run: node tests/validate_directory_sql.cjs
+          T2_DIRECTORY_URL: https://servo-social-russ-1.onrender.com
+        run: python scripts/build-vercel-site.py

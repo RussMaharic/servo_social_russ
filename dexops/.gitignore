@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.env
+.env.*
+!.env.example
+*.sqlite3*
+.vercel/
+src/t2_bots/connect/static/downloads/
+src/t2_bots/connect/static/release.json
+src/t2_bots/connect/static/build-info.json
+src/t2_bots/connect/static/bootstrap.py

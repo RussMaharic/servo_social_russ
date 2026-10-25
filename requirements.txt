@@ -1,2 +1,2 @@
-# Railway/Railpack installs this deployment dependency set automatically.
-.[directory]
+# Render with an empty Root Directory installs the maintained Dexops app.
+./dexops[directory]

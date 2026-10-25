@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "t2-bots"
+version = "0.3.1"
+description = "Dexops onboarding, local robot companion, and remote follower directory"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dependencies = ["pyserial>=3.5", "websockets>=12.0"]
+
+[project.optional-dependencies]
+gateway = ["fastapi>=0.100.0", "uvicorn>=0.20.0", "pydantic>=2.0.0"]
+directory = ["fastapi>=0.100.0", "uvicorn>=0.20.0", "pydantic>=2.0.0"]
+dev = ["build>=1.0", "pytest>=7.0", "pytest-asyncio>=0.21", "httpx>=0.27"]
+
+[project.scripts]
+dexops = "t2_bots.connect.cli:main"
+t2-connect = "t2_bots.connect.app:main"
+t2-directory = "t2_bots.connect.directory:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["t2_bots", "t2_bots.*", "t2_bots_so101", "t2_bots_so101.*"]
+
+[tool.setuptools.package-data]
+"t2_bots.connect" = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

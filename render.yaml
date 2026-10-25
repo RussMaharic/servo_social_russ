@@ -2,6 +2,7 @@ services:
   - type: web
     name: t2-connect-directory
     runtime: python
+    rootDir: dexops
     plan: free
     numInstances: 1
     buildCommand: pip install -r requirements.txt

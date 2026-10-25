@@ -1,0 +1,11 @@
+Dexops contains code derived from t2-BOTS / t2-bots-teleop.
+Original project: https://github.com/roniejosephv-star/t2-bots-teleop
+Original package authors: Mindflow / t2-BOTS Team.
+The original Apache License, Version 2.0, is retained in LICENSE.
+
+Dexops additions include the browser onboarding and follower dashboard,
+local companion API, guided calibration, device identity and SQLite directory,
+hosted workspace handoff, cross-platform launchers, and session recovery.
+
+The Python package names t2_bots and t2_bots_so101, API session headers,
+wire protocol, version, and local state directory are retained for compatibility.

@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "python3 scripts/build-vercel-site.py",
+  "buildCommand": "python3 dexops/scripts/build-vercel-site.py",
   "installCommand": "",
-  "outputDirectory": "src/t2_bots/connect/static",
+  "outputDirectory": "dexops/src/t2_bots/connect/static",
   "headers": [
     {"source": "/(.*)", "headers": [
       {"key": "X-Content-Type-Options", "value": "nosniff"},
@@ -11,6 +11,7 @@
       {"key": "X-Frame-Options", "value": "DENY"}
     ]},
     {"source": "/release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]},
+    {"source": "/bootstrap.py", "headers": [{"key": "Cache-Control", "value": "no-store"}]},
     {"source": "/downloads/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"}]}
   ]
 }
