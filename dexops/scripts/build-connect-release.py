@@ -22,20 +22,26 @@ REPOSITORY = "https://github.com/RussMaharic/servo_social_russ.git"
 
 
 def published_commit():
-    """Never advertise a Git revision that excludes local, uncommitted changes."""
+    """Use the Git provider's deployment revision, or a clean local checkout."""
     deployed = os.environ.get("VERCEL_GIT_COMMIT_SHA", "")
+    # Vercel's Git integration supplies the source revision. Its build workspace
+    # may contain platform-generated files or omit checkout metadata entirely;
+    # those are not local source changes. Verify both provider and repository
+    # before accepting the deployment's revision as authoritative.
+    if (os.environ.get("VERCEL") == "1" and os.environ.get("VERCEL_GIT_PROVIDER") == "github"
+            and os.environ.get("VERCEL_GIT_REPO_OWNER", "").lower() == "russmaharic"
+            and os.environ.get("VERCEL_GIT_REPO_SLUG", "").lower() == "servo_social_russ"
+            and re.fullmatch(r"[0-9a-f]{40,64}", deployed)):
+        print("Using verified Vercel Git revision: " + deployed)
+        return deployed
     try:
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=normal"], cwd=ROOT, text=True).strip()
     except (OSError, subprocess.SubprocessError):
-        # Git-integrated builds can omit .git. Vercel supplies the commit and
-        # source repository as system metadata, rather than user-entered keys.
-        if (os.environ.get("VERCEL") == "1" and os.environ.get("VERCEL_GIT_PROVIDER") == "github"
-                and os.environ.get("VERCEL_GIT_REPO_OWNER", "").lower() == "russmaharic"
-                and os.environ.get("VERCEL_GIT_REPO_SLUG", "").lower() == "servo_social_russ"
-                and re.fullmatch(r"[0-9a-f]{40,64}", deployed)):
-            return deployed
+        print("No clean local checkout or verified Vercel Git metadata is available.")
         return None
+    if dirty:
+        print("Local checkout has uncommitted paths: " + "; ".join(dirty.splitlines()[:10]))
     deployed = deployed or commit
     return commit if not dirty and deployed == commit and re.fullmatch(r"[0-9a-f]{40,64}", commit) else None
 

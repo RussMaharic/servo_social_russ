@@ -76,6 +76,17 @@ def test_git_integrated_vercel_build_can_publish_without_git_directory(monkeypat
     assert release.published_commit() is None
 
 
+def test_vercel_git_revision_does_not_depend_on_platform_generated_checkout_state(monkeypatch):
+    release = builder()
+    monkeypatch.setenv('VERCEL', '1')
+    monkeypatch.setenv('VERCEL_GIT_PROVIDER', 'github')
+    monkeypatch.setenv('VERCEL_GIT_REPO_OWNER', 'RussMaharic')
+    monkeypatch.setenv('VERCEL_GIT_REPO_SLUG', 'servo_social_russ')
+    monkeypatch.setenv('VERCEL_GIT_COMMIT_SHA', 'd' * 40)
+    monkeypatch.setattr(release.subprocess, 'check_output', lambda *args, **kwargs: pytest.fail('Deployment metadata must take precedence over generated Git workspace state'))
+    assert release.published_commit() == 'd' * 40
+
+
 def test_desktop_build_embeds_a_real_cross_platform_source_download(tmp_path, monkeypatch):
     release = builder()
     assets = tmp_path / "src/t2_bots/connect/static"

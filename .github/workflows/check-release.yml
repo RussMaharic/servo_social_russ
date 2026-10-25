@@ -31,7 +31,22 @@ jobs:
           python -m pip install --require-hashes -r requirements-companion.lock
           python -m pip install -e ".[gateway,dev]"
       - name: Verify simulated hardware, calibration and session recovery
-        run: python -m pytest -q
+        run: python -m pytest -q --junitxml="${{ runner.temp }}/dexops-tests.xml"
+      - name: Report failing test details
+        if: failure()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          report = Path(os.environ['RUNNER_TEMP']) / 'dexops-tests.xml'
+          if report.exists():
+              for case in ET.parse(report).iter('testcase'):
+                  for problem in list(case):
+                      if problem.tag in ('failure', 'error'):
+                          message = (case.get('name', '') + '\n' + (problem.text or problem.get('message', '')))[-6000:]
+                          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                          print('::error title=Python test failed::' + message)
       - name: Verify onboarding and dashboard
         run: node --test tests/*.test.cjs
 
