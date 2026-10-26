@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -103,8 +104,10 @@ def test_desktop_build_embeds_a_real_cross_platform_source_download(tmp_path, mo
     monkeypatch.setattr(release, "ASSETS", assets)
     monkeypatch.setattr(release, "source_build_id", lambda: "test-build")
     monkeypatch.setattr(release, "runtime_tls_data", lambda: [])
-    monkeypatch.setattr(release.sys, "platform", "win32")
-    monkeypatch.setattr(release.sys, "argv", ["build-connect-release.py", "--windows"])
+    # Exercise Windows packaging without making shutil call Windows-only APIs
+    # on a macOS/Linux host. argparse still reads the real process arguments.
+    monkeypatch.setattr(release, "sys", SimpleNamespace(**{**vars(sys), "platform": "win32"}))
+    monkeypatch.setattr(sys, "argv", ["build-connect-release.py", "--windows"])
 
     def fake_build(command, **kwargs):
         output = tmp_path / "build/connect-release"

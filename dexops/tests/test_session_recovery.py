@@ -101,7 +101,8 @@ async def test_slow_valid_motor_health_reads_no_longer_trigger_network_timeout()
         await until(lambda: leader.enabled)
         bus.slow = True
         await asyncio.sleep(3)
-        assert leader.status == follower.status == "following"
+        assert leader.status == follower.status == "following", {
+            "leader": leader.snapshot(), "follower": follower.snapshot()}
         assert not leader.error and not follower.error
         assert leader.reconnect_attempt == 0
     finally:

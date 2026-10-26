@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 import sys
+from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from t2_bots.connect.app import create_app
@@ -279,7 +280,8 @@ def test_runtime_detection_alone_does_not_approve_installation(tmp_path):
 @pytest.mark.parametrize("system",["win32","darwin","linux"])
 def test_runtime_supports_readme_platforms(monkeypatch,system):
     from t2_bots.connect import runtime
-    monkeypatch.setattr(runtime.sys,"platform",system)
+    # Change the runtime's view, not ssl/asyncio's view of the real host OS.
+    monkeypatch.setattr(runtime,"sys",SimpleNamespace(**{**vars(sys),"platform":system}))
     monkeypatch.setattr(runtime.shutil,"which",lambda _:None)
     result=runtime.Runtime().snapshot()
     assert result["platform"]==system and result["compatible"]
